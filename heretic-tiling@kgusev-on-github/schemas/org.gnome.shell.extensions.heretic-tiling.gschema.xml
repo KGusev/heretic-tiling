@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.heretic-tiling"
+          path="/org/gnome/shell/extensions/heretic-tiling/">
+
+    <key name="persist-layouts" type="b">
+      <default>false</default>
+      <summary>Remember layouts and splitter sizes</summary>
+    </key>
+    <key name="saved-layouts" type="s">
+      <default>'{}'</default>
+      <summary>Versioned workspace layout preferences</summary>
+    </key>
+    <key name="default-layout" type="s">
+      <default>'hbox'</default>
+      <summary>Default workspace layout</summary>
+      <description>none, hbox, vbox, or a named preset. Applied on extension enable.</description>
+    </key>
+    <key name="create-hbox-shortcut" type="as">
+      <default>['&lt;Super&gt;h']</default>
+      <summary>Create horizontal layout</summary>
+    </key>
+    <key name="create-vbox-shortcut" type="as">
+      <default>['&lt;Super&gt;v']</default>
+      <summary>Create vertical layout</summary>
+    </key>
+
+    <key name="focus-left-shortcut" type="as">
+      <default>['&lt;Super&gt;Left']</default>
+      <summary>Focus tiled window left</summary>
+    </key>
+    <key name="focus-right-shortcut" type="as">
+      <default>['&lt;Super&gt;Right']</default>
+      <summary>Focus tiled window right</summary>
+    </key>
+    <key name="focus-up-shortcut" type="as">
+      <default>['&lt;Super&gt;Up']</default>
+      <summary>Focus tiled window up</summary>
+    </key>
+    <key name="focus-down-shortcut" type="as">
+      <default>['&lt;Super&gt;Down']</default>
+      <summary>Focus tiled window down</summary>
+    </key>
+
+    <key name="resize-grid-step" type="i">
+      <range min="1" max="50"/>
+      <default>5</default>
+      <summary>Keyboard resize grid step in percent</summary>
+      <description>Snap the tile size to this percentage grid within its enclosing layout box.</description>
+    </key>
+
+    <key name="resize-left-shortcut" type="as">
+      <default>['&lt;Super&gt;&lt;Shift&gt;Left']</default>
+      <summary>Move or resize focused tile left</summary>
+    </key>
+    <key name="resize-right-shortcut" type="as">
+      <default>['&lt;Super&gt;&lt;Shift&gt;Right']</default>
+      <summary>Move or resize focused tile right</summary>
+    </key>
+    <key name="resize-up-shortcut" type="as">
+      <default>['&lt;Super&gt;&lt;Shift&gt;Up']</default>
+      <summary>Move or resize focused tile up</summary>
+    </key>
+    <key name="resize-down-shortcut" type="as">
+      <default>['&lt;Super&gt;&lt;Shift&gt;Down']</default>
+      <summary>Move or resize focused tile down</summary>
+    </key>
+
+    <key name="toggle-resize-mode-shortcut" type="as">
+      <default>['&lt;Super&gt;r']</default>
+      <summary>Toggle Normal and Resize modes</summary>
+    </key>
+    <key name="exit-resize-mode-shortcut" type="as">
+      <default>['Escape']</default>
+      <summary>Return to Normal mode</summary>
+    </key>
+
+    <!-- ── Core behaviour ─────────────────────────────────────────────── -->
+
+
+    <key name="num-workspaces" type="i">
+      <default>10</default>
+      <range min="2" max="20"/>
+      <summary>Number of workspaces</summary>
+      <description>
+        Fixed number of workspaces managed by Heretic Tiling.
+        Changes take effect after reloading the extension (disable + enable).
+      </description>
+    </key>
+
+    <key name="custom-workspace-indicator" type="b">
+      <default>true</default>
+      <summary>Use custom workspace indicator</summary>
+      <description>
+        When enabled, replaces the default GNOME Shell workspace dots with a
+        custom numbered-button indicator in the left panel.
+        Changes take effect after reloading the extension (disable + enable).
+      </description>
+    </key>
+
+    <key name="workspace-scroll-switch" type="b">
+      <default>true</default>
+      <summary>Switch workspace by scrolling the indicator</summary>
+      <description>
+        When enabled, scrolling the mouse wheel over the custom workspace indicator
+        switches to the previous (scroll up) or next (scroll down) workspace.
+      </description>
+    </key>
+
+    <key name="highlight-empty-workspaces" type="b">
+      <default>true</default>
+      <summary>Highlight empty workspaces</summary>
+      <description>
+        When enabled, workspace buttons that contain no windows are rendered
+        dimmer than workspaces that have windows.
+      </description>
+    </key>
+
+    <key name="middle-click-move" type="b">
+      <default>true</default>
+      <summary>Middle-click to move focused window</summary>
+      <description>
+        When enabled, middle-clicking a workspace button in the custom workspace
+        indicator moves the currently focused window to that workspace and
+        switches to it.
+      </description>
+    </key>
+
+    <key name="dim-unfocused-windows" type="b">
+      <default>false</default>
+      <summary>Dim unfocused windows</summary>
+      <description>Darken inactive application windows. Applies immediately and is suspended in overview.</description>
+    </key>
+    <key name="unfocused-window-dim-percent" type="i">
+      <default>20</default>
+      <range min="0" max="80"/>
+      <summary>Inactive window brightness reduction (%)</summary>
+    </key>
+
+    <key name="center-cursor-on-focus" type="b">
+      <default>false</default>
+      <summary>Center cursor on focused window</summary>
+      <description>
+        Move the cursor to the center of the newly focused window whenever
+        window focus changes. Changes take effect immediately.
+      </description>
+    </key>
+
+    <key name="focus-next-on-close" type="b">
+      <default>true</default>
+      <summary>Focus front-placed window when the active window is closed</summary>
+      <description>
+        When enabled, closing the focused window moves focus to the remaining
+        window that is topmost in the stacking order on the same workspace,
+        instead of Mutter's default focus behaviour.
+      </description>
+    </key>
+
+    <!-- ── Keybindings ────────────────────────────────────────────────── -->
+
+    <key name="toggle-workspace-1" type="as">
+      <default><![CDATA[['<Super>1']]]></default>
+      <summary>Switch to workspace 1 or toggle back</summary>
+      <description>Switch to this workspace, or return to the workspace left by the last numbered shortcut.</description>
+    </key>
+
+    <key name="toggle-workspace-2" type="as">
+      <default><![CDATA[['<Super>2']]]></default>
+      <summary>Switch to workspace 2 or toggle back</summary>
+      <description>Switch to this workspace, or return to the workspace left by the last numbered shortcut.</description>
+    </key>
+
+    <key name="toggle-workspace-3" type="as">
+      <default><![CDATA[['<Super>3']]]></default>
+      <summary>Switch to workspace 3 or toggle back</summary>
+      <description>Switch to this workspace, or return to the workspace left by the last numbered shortcut.</description>
+    </key>
+
+    <key name="toggle-workspace-4" type="as">
+      <default><![CDATA[['<Super>4']]]></default>
+      <summary>Switch to workspace 4 or toggle back</summary>
+      <description>Switch to this workspace, or return to the workspace left by the last numbered shortcut.</description>
+    </key>
+
+    <key name="toggle-workspace-5" type="as">
+      <default><![CDATA[['<Super>5']]]></default>
+      <summary>Switch to workspace 5 or toggle back</summary>
+      <description>Switch to this workspace, or return to the workspace left by the last numbered shortcut.</description>
+    </key>
+
+    <key name="toggle-workspace-6" type="as">
+      <default><![CDATA[['<Super>6']]]></default>
+      <summary>Switch to workspace 6 or toggle back</summary>
+      <description>Switch to this workspace, or return to the workspace left by the last numbered shortcut.</description>
+    </key>
+
+    <key name="toggle-workspace-7" type="as">
+      <default><![CDATA[['<Super>7']]]></default>
+      <summary>Switch to workspace 7 or toggle back</summary>
+      <description>Switch to this workspace, or return to the workspace left by the last numbered shortcut.</description>
+    </key>
+
+    <key name="toggle-workspace-8" type="as">
+      <default><![CDATA[['<Super>8']]]></default>
+      <summary>Switch to workspace 8 or toggle back</summary>
+      <description>Switch to this workspace, or return to the workspace left by the last numbered shortcut.</description>
+    </key>
+
+    <key name="toggle-workspace-9" type="as">
+      <default><![CDATA[['<Super>9']]]></default>
+      <summary>Switch to workspace 9 or toggle back</summary>
+      <description>Switch to this workspace, or return to the workspace left by the last numbered shortcut.</description>
+    </key>
+
+    <key name="toggle-workspace-10" type="as">
+      <default><![CDATA[['<Super>0']]]></default>
+      <summary>Switch to workspace 10 or toggle back</summary>
+      <description>Switch to this workspace, or return to the workspace left by the last numbered shortcut.</description>
+    </key>
+
+    <key name="toggle-app-grid-shortcut" type="as">
+      <default><![CDATA[['<Super>d']]]></default>
+      <summary>Toggle app grid</summary>
+      <description>Open or close the application grid</description>
+    </key>
+
+    <key name="close-window-shortcut" type="as">
+      <default><![CDATA[['<Super>w']]]></default>
+      <summary>Close focused window</summary>
+      <description>Close currently focused window</description>
+    </key>
+
+    <key name="inspect-window-shortcut" type="as">
+      <default>['&lt;Super&gt;i']</default>
+      <summary>Toggle focused window inspector</summary>
+    </key>
+
+    <!-- ── Developer ──────────────────────────────────────────────────── -->
+
+    <key name="debug" type="b">
+      <default>false</default>
+      <summary>Enable debug logging</summary>
+      <description>
+        Write verbose log messages to journalctl.
+        Useful for troubleshooting rule matching.
+      </description>
+    </key>
+
+    <key name="force-reload-timestamp" type="i">
+      <default>0</default>
+      <summary>Force rules reload</summary>
+      <description>
+        Setting this to any new value causes the extension to reload config.json immediately.
+        Used by the Preferences window "Reload now" button.
+      </description>
+    </key>
+
+  </schema>
+</schemalist>
