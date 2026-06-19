@@ -1,0 +1,105 @@
+{
+  "workspace_actions": [
+    {
+      "comment": "Restore the full Zoom meeting when entering workspace 6",
+      "workspace": 6,
+      "match": {
+        "wm_class": "zoom",
+        "wm_class_instance": "zoom",
+        "wm_title": "zoom_linux_float_video_window"
+      },
+      "click": {
+        "anchor": "bottom-right",
+        "x": -20,
+        "y": -20
+      },
+      "delay_ms": 200,
+      "attempts": 5,
+      "interval_ms": 250
+    }
+  ],
+  "rules": [
+    {
+      "comment": "Zoom annotation toolbar overlay: never steal focus and never maximize",
+      "stop": true,
+      "match": {
+        "wm_class": "zoom",
+        "wm_title": "annotate_toolbar"
+      },
+      "actions": {
+        "no_focus": true,
+        "maximize": false
+      }
+    },
+    {
+      "comment": "Catch-all: maximize every normal window that is not floating",
+      "match": {
+        "is_above": false
+      },
+      "actions": {
+        "maximize": true
+      }
+    },
+    {
+      "comment": "Zoom main window: move to workspace 6 and maximize",
+      "match": {
+        "wm_class": "zoom",
+        "is_above": false
+      },
+      "actions": {
+        "move_to_workspace": 6,
+        "maximize": true
+      }
+    },
+    {
+      "comment": "Zoom floating video window on workspace 6: maximize it too",
+      "match": {
+        "wm_class": "zoom",
+        "wm_title": "zoom_linux_float_video_window",
+        "workspace": 6
+      },
+      "actions": {
+        "maximize": true
+      }
+    },
+    {
+      "comment": "Zoom floating video window (any workspace): make sticky so it follows everywhere",
+      "match": {
+        "wm_class": "zoom",
+        "wm_title": "zoom_linux_float_video_window"
+      },
+      "actions": {
+        "sticky": true,
+        "maximize": false
+      }
+    },
+    {
+      "comment": "Keep picture-in-picture always on top (floating)",
+      "match": {
+        "wm_title": { "regex": "Picture.in.Picture", "flags": "i" }
+      },
+      "actions": {
+        "float": true,
+        "maximize": false
+      }
+    },
+    {
+      "comment": "Move Telegram to workspace 10",
+      "match": {
+        "wm_class": "TelegramDesktop"
+      },
+      "actions": {
+        "move_to_workspace": 10
+      }
+    },
+    {
+      "comment": "Modal dialect",
+      "match": {
+        "wm_class": "dialect"
+      },
+      "actions": {
+        "place": "center"
+      }
+    }
+  ]
+}
