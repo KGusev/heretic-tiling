@@ -8,15 +8,15 @@
  */
 
 import Meta from 'gi://Meta';
-import { Logger } from '../logger.js';
-import { SignalTracker } from '../utils/signalTracker.js';
+import {Logger} from '../logger.js';
+import {SignalTracker} from '../utils/signalTracker.js';
 
 export class StickyManager {
     constructor() {
         /** @type {Set<Meta.Window>} */
         this._windows = new Set();
         this._signals = new SignalTracker();
-        this._log     = new Logger('StickyManager');
+        this._log = new Logger('StickyManager');
     }
 
     /** Disconnect all handlers and forget all windows. */
@@ -61,8 +61,8 @@ export class StickyManager {
                 return;
             }
 
-            window.stick();       // appear on every workspace
-            window.make_above();  // keep above other windows
+            window.stick(); // appear on every workspace
+            window.make_above(); // keep above other windows
             this._windows.add(window);
             this._log.debug(`made window sticky: "${window.get_title()}"`);
 
@@ -102,24 +102,23 @@ export class StickyManager {
      */
     unfocusAll() {
         const focused = global.display.focus_window;
-        if (!focused || !this._isSticky(focused))
-            return;
+        if (!focused || !this._isSticky(focused)) return;
 
         this._log.debug('sticky window has focus after workspace switch — finding replacement');
 
         try {
             const activeWs = global.workspace_manager.get_active_workspace();
-            if (!activeWs)
-                return;
+            if (!activeWs) return;
 
             // Collect non-sticky normal windows, sorted by most-recently-used first.
             const candidates = activeWs
                 .list_windows()
-                .filter(win =>
-                    win.window_type === Meta.WindowType.NORMAL &&
-                    !win.minimized &&
-                    !this._isSticky(win) &&
-                    win !== focused,
+                .filter(
+                    (win) =>
+                        win.window_type === Meta.WindowType.NORMAL &&
+                        !win.minimized &&
+                        !this._isSticky(win) &&
+                        win !== focused,
                 )
                 .sort((a, b) => b.get_user_time() - a.get_user_time());
 

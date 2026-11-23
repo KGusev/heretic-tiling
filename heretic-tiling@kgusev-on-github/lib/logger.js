@@ -43,8 +43,7 @@ export class Logger {
 
     /** Verbose — only printed when the global debug flag is enabled. */
     debug(msg) {
-        if (_globalDebug)
-            console.log(`${this._tag()} ${msg}`);
+        if (_globalDebug) console.log(`${this._tag()} ${msg}`);
     }
 
     /** Informational — always printed (for important lifecycle events). */

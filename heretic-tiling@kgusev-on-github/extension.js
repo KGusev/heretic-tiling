@@ -23,27 +23,27 @@ import {WindowShadows} from './lib/windowShadows.js';
 import {WindowDimming} from './lib/windowDimming.js';
 import {WorkspaceActions} from './lib/workspaceActions.js';
 
-import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
+import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import GLib from 'gi://GLib';
 
-import { LayoutManager } from './lib/layouts/layoutManager.js';
-import { RuleEngine }         from './lib/rules/ruleEngine.js';
-import { ActionDispatcher }   from './lib/actions/dispatcher.js';
-import { StickyManager }      from './lib/actions/stickyManager.js';
-import { WindowTracker }      from './lib/windowTracker.js';
-import { FocusManager }       from './lib/focusManager.js';
-import { KeybindingsManager } from './lib/keybindings.js';
-import { ShortcutsManager }   from './lib/shortcuts.js';
-import { DockManager }        from './lib/dockManager.js';
-import { WorkspaceIndicator } from './lib/workspaceIndicator.js';
-import { SourceTracker }      from './lib/utils/sourceTracker.js';
-import { SignalTracker }      from './lib/utils/signalTracker.js';
-import { Logger, setGlobalDebug } from './lib/logger.js';
+import {LayoutManager} from './lib/layouts/layoutManager.js';
+import {RuleEngine} from './lib/rules/ruleEngine.js';
+import {ActionDispatcher} from './lib/actions/dispatcher.js';
+import {StickyManager} from './lib/actions/stickyManager.js';
+import {WindowTracker} from './lib/windowTracker.js';
+import {FocusManager} from './lib/focusManager.js';
+import {KeybindingsManager} from './lib/keybindings.js';
+import {ShortcutsManager} from './lib/shortcuts.js';
+import {DockManager} from './lib/dockManager.js';
+import {WorkspaceIndicator} from './lib/workspaceIndicator.js';
+import {SourceTracker} from './lib/utils/sourceTracker.js';
+import {SignalTracker} from './lib/utils/signalTracker.js';
+import {Logger, setGlobalDebug} from './lib/logger.js';
 
 /** Path inside the user's XDG config dir where config.json is stored. */
 const USER_CONFIG_SUBDIR = 'heretic-tiling';
-const CONFIG_FILENAME    = 'config.json';
+const CONFIG_FILENAME = 'config.json';
 
 export default class HereticTilingExtension extends Extension {
     enable() {
@@ -52,13 +52,13 @@ export default class HereticTilingExtension extends Extension {
         this._signals = new SignalTracker();
 
         // GSettings objects
-        this._settings         = this.getSettings();
-        this._shellSettings    = new Gio.Settings({ schema: 'org.gnome.shell' });
-        this._mutterSettings   = new Gio.Settings({ schema: 'org.gnome.mutter' });
-        this._wmPrefs          = new Gio.Settings({ schema: 'org.gnome.desktop.wm.preferences' });
-        this._mutterKeybindings = new Gio.Settings({ schema: 'org.gnome.mutter.keybindings' });
-        this._wmKeybindings    = new Gio.Settings({ schema: 'org.gnome.desktop.wm.keybindings' });
-        this._shellKeybindings = new Gio.Settings({ schema: 'org.gnome.shell.keybindings' });
+        this._settings = this.getSettings();
+        this._shellSettings = new Gio.Settings({schema: 'org.gnome.shell'});
+        this._mutterSettings = new Gio.Settings({schema: 'org.gnome.mutter'});
+        this._wmPrefs = new Gio.Settings({schema: 'org.gnome.desktop.wm.preferences'});
+        this._mutterKeybindings = new Gio.Settings({schema: 'org.gnome.mutter.keybindings'});
+        this._wmKeybindings = new Gio.Settings({schema: 'org.gnome.desktop.wm.keybindings'});
+        this._shellKeybindings = new Gio.Settings({schema: 'org.gnome.shell.keybindings'});
 
         // Logger (debug flag comes from GSettings; global for all modules)
         setGlobalDebug(this._settings.get_boolean('debug'));
@@ -83,7 +83,7 @@ export default class HereticTilingExtension extends Extension {
         // 1. Fixed number of workspaces
         this._savedSettings = {
             dynamic: this._mutterSettings.get_boolean('dynamic-workspaces'),
-            num:     this._wmPrefs.get_int('num-workspaces'),
+            num: this._wmPrefs.get_int('num-workspaces'),
         };
         this._mutterSettings.set_boolean('dynamic-workspaces', false);
         this._wmPrefs.set_int('num-workspaces', numWorkspaces);
@@ -108,9 +108,8 @@ export default class HereticTilingExtension extends Extension {
         this._layouts.enable();
         this._ruleEngine.onReload(() => this._layouts.reload());
         this._stickyManager = new StickyManager();
-        this._dispatcher    = new ActionDispatcher(this._stickyManager, this._sources, this._layouts);
-        this._windowTracker = new WindowTracker(
-            this._ruleEngine, this._dispatcher, this._sources);
+        this._dispatcher = new ActionDispatcher(this._stickyManager, this._sources, this._layouts);
+        this._windowTracker = new WindowTracker(this._ruleEngine, this._dispatcher, this._sources);
         this._windowTracker.enable();
 
         // Focus behaviour reacts to settings on each focus change.
@@ -133,8 +132,7 @@ export default class HereticTilingExtension extends Extension {
         this._signals.connect(global.window_manager, 'switch-workspace', () => {
             this._workspaceActions.onWorkspaceChanged();
             this._log.debug('workspace switched — deferring sticky-window check');
-            this._sources.idle(() => this._stickyManager?.unfocusAll(),
-                GLib.PRIORITY_DEFAULT_IDLE);
+            this._sources.idle(() => this._stickyManager?.unfocusAll(), GLib.PRIORITY_DEFAULT_IDLE);
         });
 
         // 8. Custom workspace indicator in the left panel box (if enabled in prefs)
@@ -144,13 +142,13 @@ export default class HereticTilingExtension extends Extension {
         // Watch the scroll-to-switch toggle so it takes effect without reloading
         this._signals.connect(this._settings, 'changed::workspace-scroll-switch', () => {
             this._wsIndicator?.setScrollSwitch(
-                this._settings.get_boolean('workspace-scroll-switch'));
+                this._settings.get_boolean('workspace-scroll-switch'),
+            );
         });
 
         // Watch the middle-click-move toggle so it takes effect without reloading
         this._signals.connect(this._settings, 'changed::middle-click-move', () => {
-            this._wsIndicator?.setMiddleClickMove(
-                this._settings.get_boolean('middle-click-move'));
+            this._wsIndicator?.setMiddleClickMove(this._settings.get_boolean('middle-click-move'));
         });
 
         this._log.info('enabled');
@@ -213,12 +211,12 @@ export default class HereticTilingExtension extends Extension {
         this._dockManager = null;
 
         // Release GSettings objects
-        this._settings         = null;
-        this._shellSettings    = null;
-        this._mutterSettings   = null;
-        this._wmPrefs          = null;
+        this._settings = null;
+        this._shellSettings = null;
+        this._mutterSettings = null;
+        this._wmPrefs = null;
         this._mutterKeybindings = null;
-        this._wmKeybindings    = null;
+        this._wmKeybindings = null;
         this._shellKeybindings = null;
 
         this._log?.info('disabled');
@@ -237,20 +235,16 @@ export default class HereticTilingExtension extends Extension {
      * @returns {string} absolute path to the user's config.json
      */
     _ensureUserConfigFile() {
-        const configDir = GLib.build_filenamev([
-            GLib.get_user_config_dir(),
-            USER_CONFIG_SUBDIR,
-        ]);
+        const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), USER_CONFIG_SUBDIR]);
         const userConfigPath = GLib.build_filenamev([configDir, CONFIG_FILENAME]);
-        const bundledPath    = GLib.build_filenamev([this.path, CONFIG_FILENAME]);
+        const bundledPath = GLib.build_filenamev([this.path, CONFIG_FILENAME]);
 
         try {
             const userFile = Gio.File.new_for_path(userConfigPath);
             if (!userFile.query_exists(null)) {
                 // Create config directory if needed
                 const dir = Gio.File.new_for_path(configDir);
-                if (!dir.query_exists(null))
-                    dir.make_directory_with_parents(null);
+                if (!dir.query_exists(null)) dir.make_directory_with_parents(null);
 
                 // Copy bundled config as the initial user config
                 const bundledFile = Gio.File.new_for_path(bundledPath);
@@ -258,7 +252,9 @@ export default class HereticTilingExtension extends Extension {
                 this._log.info(`created user config at ${userConfigPath}`);
             }
         } catch (e) {
-            this._log.warn(`could not create user config file, falling back to bundled: ${e.message}`);
+            this._log.warn(
+                `could not create user config file, falling back to bundled: ${e.message}`,
+            );
             return bundledPath;
         }
 
@@ -296,7 +292,13 @@ export default class HereticTilingExtension extends Extension {
         const highlightEmpty = this._settings.get_boolean('highlight-empty-workspaces');
         const middleClickMove = this._settings.get_boolean('middle-click-move');
         this._wsIndicator = new WorkspaceIndicator(
-            numWorkspaces, this._log, scrollSwitch, highlightEmpty, middleClickMove, this._layouts);
+            numWorkspaces,
+            this._log,
+            scrollSwitch,
+            highlightEmpty,
+            middleClickMove,
+            this._layouts,
+        );
         Main.panel._leftBox.insert_child_at_index(this._wsIndicator.box, 0);
         this._log.debug('custom workspace indicator inserted into left panel box');
     }

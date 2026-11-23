@@ -8,9 +8,17 @@ export class WindowShadows {
         for (const name of ['normal', 'dialog', 'modal_dialog', 'utility', 'border', 'attached']) {
             for (const focused of [false, true]) {
                 this._saved.push({name, focused, params: this._factory.get_params(name, focused)});
-                this._factory.set_params(name, focused, new Meta.ShadowParams({
-                    radius: 0, top_fade: 0, x_offset: 0, y_offset: 0, opacity: 0,
-                }));
+                this._factory.set_params(
+                    name,
+                    focused,
+                    new Meta.ShadowParams({
+                        radius: 0,
+                        top_fade: 0,
+                        x_offset: 0,
+                        y_offset: 0,
+                        opacity: 0,
+                    }),
+                );
             }
         }
     }

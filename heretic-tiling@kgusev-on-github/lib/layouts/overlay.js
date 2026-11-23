@@ -21,24 +21,38 @@ export class LayoutOverlay {
             if (d.splitter) {
                 const child = d.splitter.children[d.splitter.index];
                 // An empty slot and the splitter following it need distinct actors.
-                if (!this._splitterKeys.has(child)) this._splitterKeys.set(child, Symbol('splitter'));
+                if (!this._splitterKeys.has(child))
+                    this._splitterKeys.set(child, Symbol('splitter'));
                 key = this._splitterKeys.get(child);
             }
             keep.add(key);
             let actor = this._actors.get(key);
             if (!actor) {
-                actor = new St.Widget({reactive: Boolean(d.splitter), track_hover: false,
-                    style_class: d.splitter ? 'layout-splitter' : 'layout-placeholder-empty'});
+                actor = new St.Widget({
+                    reactive: Boolean(d.splitter),
+                    track_hover: false,
+                    style_class: d.splitter ? 'layout-splitter' : 'layout-placeholder-empty',
+                });
                 this._actors.set(key, actor);
                 global.window_group.add_child(actor);
                 if (d.splitter) {
-                    actor._border = new St.Widget({reactive: false, style_class: 'layout-separator'});
+                    actor._border = new St.Widget({
+                        reactive: false,
+                        style_class: 'layout-separator',
+                    });
                     global.window_group.add_child(actor._border);
                     // On X11, reactive actors also need a stage input region;
                     // otherwise X delivers the press to the client underneath.
-                    Main.layoutManager.trackChrome(actor, {affectsInputRegion: true, affectsStruts: false});
+                    Main.layoutManager.trackChrome(actor, {
+                        affectsInputRegion: true,
+                        affectsStruts: false,
+                    });
                     actor.connect('enter-event', () => {
-                        global.display.set_cursor(actor._descriptor.splitter.horizontal ? Meta.Cursor.EAST_RESIZE : Meta.Cursor.SOUTH_RESIZE);
+                        global.display.set_cursor(
+                            actor._descriptor.splitter.horizontal
+                                ? Meta.Cursor.EAST_RESIZE
+                                : Meta.Cursor.SOUTH_RESIZE,
+                        );
                         return Clutter.EVENT_PROPAGATE;
                     });
                     // Highlight only on pointer motion, not synthetic enter
@@ -46,7 +60,11 @@ export class LayoutOverlay {
                     actor.connect('motion-event', () => {
                         if (!this._drag) {
                             actor.add_style_pseudo_class('highlight');
-                            global.display.set_cursor(actor._descriptor.splitter.horizontal ? Meta.Cursor.EAST_RESIZE : Meta.Cursor.SOUTH_RESIZE);
+                            global.display.set_cursor(
+                                actor._descriptor.splitter.horizontal
+                                    ? Meta.Cursor.EAST_RESIZE
+                                    : Meta.Cursor.SOUTH_RESIZE,
+                            );
                         }
                         return Clutter.EVENT_PROPAGATE;
                     });
@@ -63,9 +81,14 @@ export class LayoutOverlay {
             actor.set_size(Math.max(1, d.rect.width), Math.max(1, d.rect.height));
             if (d.splitter) {
                 const horizontal = d.splitter.horizontal;
-                actor._border.set_position(d.rect.x + (horizontal ? Math.floor(d.rect.width / 2) : 0),
-                    d.rect.y + (horizontal ? 0 : Math.floor(d.rect.height / 2)));
-                actor._border.set_size(horizontal ? 1 : d.rect.width, horizontal ? d.rect.height : 1);
+                actor._border.set_position(
+                    d.rect.x + (horizontal ? Math.floor(d.rect.width / 2) : 0),
+                    d.rect.y + (horizontal ? 0 : Math.floor(d.rect.height / 2)),
+                );
+                actor._border.set_size(
+                    horizontal ? 1 : d.rect.width,
+                    horizontal ? d.rect.height : 1,
+                );
             }
         }
         for (const [key, actor] of this._actors) {
@@ -80,8 +103,8 @@ export class LayoutOverlay {
     }
     _restack() {
         const group = global.window_group;
-        const windows = group.get_children().filter(a => a.meta_window);
-        const topTiled = windows.filter(a => this._isManaged(a.meta_window)).at(-1);
+        const windows = group.get_children().filter((a) => a.meta_window);
+        const topTiled = windows.filter((a) => this._isManaged(a.meta_window)).at(-1);
         // Insert borders first, then splitters and the preview immediately
         // above the windows. This leaves every grey border above every blue
         // highlight, including where nested horizontal/vertical edges cross.
@@ -100,11 +123,11 @@ export class LayoutOverlay {
                 group.set_child_below_sibling(actor, windows[0]);
             }
         }
-        if (this._drag && topTiled)
-            group.set_child_above_sibling(this._drag.preview, topTiled);
+        if (this._drag && topTiled) group.set_child_above_sibling(this._drag.preview, topTiled);
     }
     _press(actor, event) {
-        if (event.get_button() !== Clutter.BUTTON_PRIMARY || this._drag) return Clutter.EVENT_PROPAGATE;
+        if (event.get_button() !== Clutter.BUTTON_PRIMARY || this._drag)
+            return Clutter.EVENT_PROPAGATE;
         this._clearHighlights();
         const s = actor._descriptor.splitter;
         const [x, y] = event.get_coords();
@@ -114,10 +137,17 @@ export class LayoutOverlay {
         preview.set_position(rect.x, rect.y);
         preview.set_size(rect.width, rect.height);
         global.window_group.add_child(preview);
-        this._drag = {actor, preview, rect, splitter: s, grab, origin: s.horizontal ? x : y,
+        this._drag = {
+            actor,
+            preview,
+            rect,
+            splitter: s,
+            grab,
+            origin: s.horizontal ? x : y,
             shift: Boolean(event.get_state() & Clutter.ModifierType.SHIFT_MASK),
-            weights: s.children.map(c => c.weight ?? 1),
-            minimums: s.children.map(c => minimumSize(c, s.horizontal))};
+            weights: s.children.map((c) => c.weight ?? 1),
+            minimums: s.children.map((c) => minimumSize(c, s.horizontal)),
+        };
         // A Clutter grab routes events to its actor; ancestors (including the
         // stage) do not receive the usual capture phase while it is active.
         this._restack();
@@ -127,7 +157,10 @@ export class LayoutOverlay {
     _event(event) {
         const d = this._drag;
         if (!d) return Clutter.EVENT_PROPAGATE;
-        if (event.type() === Clutter.EventType.KEY_PRESS && event.get_key_symbol() === Clutter.KEY_Escape) {
+        if (
+            event.type() === Clutter.EventType.KEY_PRESS &&
+            event.get_key_symbol() === Clutter.KEY_Escape
+        ) {
             // Keep the grab until button release. Dismissing it while the
             // button is down can strand X11's implicit pointer grab on this
             // actor and prevent the next splitter from receiving a press.
@@ -135,11 +168,17 @@ export class LayoutOverlay {
             d.preview.hide();
             return Clutter.EVENT_STOP;
         }
-        if (event.type() === Clutter.EventType.BUTTON_RELEASE && event.get_button() === Clutter.BUTTON_PRIMARY) {
+        if (
+            event.type() === Clutter.EventType.BUTTON_RELEASE &&
+            event.get_button() === Clutter.BUTTON_PRIMARY
+        ) {
             if (!d.cancelled) this._preview(event);
             const weights = d.cancelled ? null : d.pending;
             const changed = weights?.some((w, i) => w !== d.weights[i]);
-            if (changed) d.splitter.children.forEach((c, i) => { c.weight = weights[i]; });
+            if (changed)
+                d.splitter.children.forEach((c, i) => {
+                    c.weight = weights[i];
+                });
             this._finish();
             if (changed) this._changed();
             return Clutter.EVENT_STOP;
@@ -155,19 +194,29 @@ export class LayoutOverlay {
         const d = this._drag;
         const s = d.splitter;
         const [x, y] = event.get_coords();
-        d.pending = resizeWeights(d.weights, s.index, (s.horizontal ? x : y) - d.origin,
-            s.available, d.shift, d.minimums);
+        d.pending = resizeWeights(
+            d.weights,
+            s.index,
+            (s.horizontal ? x : y) - d.origin,
+            s.available,
+            d.shift,
+            d.minimums,
+        );
         // Move only a compositor actor. Applications keep their current sizes
         // until release, so slow client redraws cannot stall the drag preview.
-        const fraction = weights => {
+        const fraction = (weights) => {
             const scale = Math.max(...weights);
-            const normalized = weights.map(w => w / scale);
-            return normalized.slice(0, s.index + 1).reduce((a, b) => a + b, 0) /
-                normalized.reduce((a, b) => a + b, 0);
+            const normalized = weights.map((w) => w / scale);
+            return (
+                normalized.slice(0, s.index + 1).reduce((a, b) => a + b, 0) /
+                normalized.reduce((a, b) => a + b, 0)
+            );
         };
         const delta = Math.round((fraction(d.pending) - fraction(d.weights)) * s.available);
-        d.preview.set_position(d.rect.x + (s.horizontal ? delta : 0),
-            d.rect.y + (s.horizontal ? 0 : delta));
+        d.preview.set_position(
+            d.rect.x + (s.horizontal ? delta : 0),
+            d.rect.y + (s.horizontal ? 0 : delta),
+        );
     }
     _clearHighlights() {
         for (const actor of this._actors.values())

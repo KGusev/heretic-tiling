@@ -20,12 +20,14 @@ export class WorkspaceActions {
         for (const job of this._engine.workspaceActions) {
             if (job.workspace !== workspace) continue;
             try {
-                const process = Gio.Subprocess.new([
-                    'python3', `${this._path}/helpers/window-click.py`, JSON.stringify(job),
-                ], Gio.SubprocessFlags.NONE);
+                const process = Gio.Subprocess.new(
+                    ['python3', `${this._path}/helpers/window-click.py`, JSON.stringify(job)],
+                    Gio.SubprocessFlags.NONE,
+                );
                 const timeout = this._sources.timeout(
                     (job.delay_ms ?? 0) + (job.attempts ?? 1) * (job.interval_ms ?? 250) + 2000,
-                    () => this._cancel(process));
+                    () => this._cancel(process),
+                );
                 this._pending.set(process, timeout);
                 process.wait_async(null, (proc, result) => {
                     try {

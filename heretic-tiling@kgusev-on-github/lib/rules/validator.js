@@ -13,8 +13,12 @@ import {validateLayouts, validateWorkspaceLayouts} from '../layouts/model.js';
 import {validateWorkspaceActions} from './workspaceActions.js';
 
 import {
-    RULE_KEYS, MATCH_KEYS, ACTION_KEYS,
-    STRING_MATCH_FIELDS, WINDOW_TYPES, PLACE_PRESET_NAMES,
+    RULE_KEYS,
+    MATCH_KEYS,
+    ACTION_KEYS,
+    STRING_MATCH_FIELDS,
+    WINDOW_TYPES,
+    PLACE_PRESET_NAMES,
 } from './schema.js';
 
 /**
@@ -38,8 +42,7 @@ export function validateRule(rule, index, opts = {}) {
 
     // Unknown top-level keys
     for (const k of Object.keys(rule)) {
-        if (!RULE_KEYS.has(k))
-            errors.push(`${label}: unknown key "${k}"`);
+        if (!RULE_KEYS.has(k)) errors.push(`${label}: unknown key "${k}"`);
     }
 
     // priority / stop / comment
@@ -56,8 +59,7 @@ export function validateRule(rule, index, opts = {}) {
         errors.push(`${label}: "match" must be an object`);
     } else {
         for (const k of Object.keys(match)) {
-            if (!MATCH_KEYS.has(k))
-                errors.push(`${label}: unknown match key "${k}"`);
+            if (!MATCH_KEYS.has(k)) errors.push(`${label}: unknown match key "${k}"`);
         }
 
         // String/regex fields — also detect wm_name/wm_class_instance conflict
@@ -69,7 +71,8 @@ export function validateRule(rule, index, opts = {}) {
             if (seenPropKeys.has(propKey)) {
                 errors.push(
                     `${label}: "${jsonKey}" conflicts with an earlier matcher for ` +
-                    `"${propKey}" (use "wm_class_instance" or "wm_name", not both)`);
+                        `"${propKey}" (use "wm_class_instance" or "wm_name", not both)`,
+                );
                 continue;
             }
             seenPropKeys.add(propKey);
@@ -103,7 +106,9 @@ export function validateRule(rule, index, opts = {}) {
             errors.push(`${label}: match.monitor must be a non-negative integer`);
 
         if ('window_type' in match && !WINDOW_TYPES.has(match.window_type))
-            errors.push(`${label}: match.window_type must be one of: ${[...WINDOW_TYPES].join(', ')}`);
+            errors.push(
+                `${label}: match.window_type must be one of: ${[...WINDOW_TYPES].join(', ')}`,
+            );
     }
 
     // ----------------------------------------------------------- actions
@@ -112,24 +117,29 @@ export function validateRule(rule, index, opts = {}) {
         errors.push(`${label}: "actions" must be an object`);
     } else {
         for (const k of Object.keys(actions)) {
-            if (!ACTION_KEYS.has(k))
-                errors.push(`${label}: unknown action "${k}"`);
+            if (!ACTION_KEYS.has(k)) errors.push(`${label}: unknown action "${k}"`);
         }
 
         if ('move_to_workspace' in actions) {
             const v = actions.move_to_workspace;
             if (!Number.isInteger(v) || v < 1 || (maxWs !== null && v > maxWs))
-                errors.push(`${label}: actions.move_to_workspace must be an integer 1..${maxWs ?? 'N'}`);
+                errors.push(
+                    `${label}: actions.move_to_workspace must be an integer 1..${maxWs ?? 'N'}`,
+                );
         }
 
         if ('move_to_monitor' in actions) {
             const v = actions.move_to_monitor;
             if (v !== 'primary' && (!Number.isInteger(v) || v < 0))
-                errors.push(`${label}: actions.move_to_monitor must be a non-negative integer or "primary"`);
+                errors.push(
+                    `${label}: actions.move_to_monitor must be a non-negative integer or "primary"`,
+                );
         }
 
-        if ('layout_placeholder' in actions &&
-            (typeof actions.layout_placeholder !== 'string' || !actions.layout_placeholder.trim()))
+        if (
+            'layout_placeholder' in actions &&
+            (typeof actions.layout_placeholder !== 'string' || !actions.layout_placeholder.trim())
+        )
             errors.push(`${label}: actions.layout_placeholder must be a nonempty string`);
 
         if ('maximize' in actions && typeof actions.maximize !== 'boolean')
@@ -160,15 +170,19 @@ export function validateRule(rule, index, opts = {}) {
             const v = actions.place;
             if (typeof v === 'string') {
                 if (!PLACE_PRESET_NAMES.has(v))
-                    errors.push(`${label}: actions.place preset "${v}" unknown; ` +
-                                `valid presets: ${[...PLACE_PRESET_NAMES].join(', ')}`);
+                    errors.push(
+                        `${label}: actions.place preset "${v}" unknown; ` +
+                            `valid presets: ${[...PLACE_PRESET_NAMES].join(', ')}`,
+                    );
             } else if (typeof v === 'object' && v !== null) {
                 for (const k of ['x', 'y', 'width', 'height']) {
                     if (typeof v[k] !== 'number' || v[k] < 0 || v[k] > 1)
                         errors.push(`${label}: actions.place.${k} must be a number 0.0–1.0`);
                 }
             } else {
-                errors.push(`${label}: actions.place must be a preset string or { x, y, width, height }`);
+                errors.push(
+                    `${label}: actions.place must be a preset string or { x, y, width, height }`,
+                );
             }
         }
     }
@@ -188,16 +202,19 @@ export function validateRules(jsonText, opts = {}) {
     try {
         parsed = JSON.parse(jsonText);
     } catch (e) {
-        return { total: 0, errors: [`JSON parse error: ${e.message}`] };
+        return {total: 0, errors: [`JSON parse error: ${e.message}`]};
     }
 
     if (typeof parsed !== 'object' || parsed === null || !Array.isArray(parsed.rules))
-        return { total: 0, errors: ['config.json must be an object with a "rules" array'] };
+        return {total: 0, errors: ['config.json must be an object with a "rules" array']};
 
-    const errors = [...validateWorkspaceActions(parsed.workspace_actions, opts), ...validateLayouts(parsed.layouts),
-            ...validateWorkspaceLayouts(parsed.workspace_layouts, parsed.layouts)];
+    const errors = [
+        ...validateWorkspaceActions(parsed.workspace_actions, opts),
+        ...validateLayouts(parsed.layouts),
+        ...validateWorkspaceLayouts(parsed.workspace_layouts, parsed.layouts),
+    ];
     for (let i = 0; i < parsed.rules.length; i++)
         errors.push(...validateRule(parsed.rules[i], i, opts));
 
-    return { total: parsed.rules.length, errors };
+    return {total: parsed.rules.length, errors};
 }

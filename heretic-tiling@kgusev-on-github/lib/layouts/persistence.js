@@ -1,12 +1,20 @@
 /** Versioned, window-free layout preferences. Save only explicit user changes. */
 export function weightSnapshot(node) {
-    return {type: node.type, weight: node.weight ?? 1,
-        children: (node.children ?? []).map(weightSnapshot)};
+    return {
+        type: node.type,
+        weight: node.weight ?? 1,
+        children: (node.children ?? []).map(weightSnapshot),
+    };
 }
 
 export function restoreWeights(node, saved) {
-    const valid = (n, s, depth = 0) => depth <= 64 && s && n.type === s.type &&
-        Number.isFinite(s.weight) && s.weight > 0 && Array.isArray(s.children) &&
+    const valid = (n, s, depth = 0) =>
+        depth <= 64 &&
+        s &&
+        n.type === s.type &&
+        Number.isFinite(s.weight) &&
+        s.weight > 0 &&
+        Array.isArray(s.children) &&
         s.children.length === (n.children ?? []).length &&
         (n.children ?? []).every((c, i) => valid(c, s.children[i], depth + 1));
     if (!valid(node, saved)) return false;
@@ -24,18 +32,30 @@ export class LayoutPersistence {
         this.data = {version: 1, workspaces: {}};
         try {
             const parsed = JSON.parse(settings.get_string('saved-layouts'));
-            if (parsed?.version === 1 && parsed.workspaces &&
-                typeof parsed.workspaces === 'object' && !Array.isArray(parsed.workspaces))
+            if (
+                parsed?.version === 1 &&
+                parsed.workspaces &&
+                typeof parsed.workspaces === 'object' &&
+                !Array.isArray(parsed.workspaces)
+            )
                 this.data = parsed;
-        } catch (_) { /* Ignore corrupt or unsupported saved state. */ }
+        } catch (_) {
+            /* Ignore corrupt or unsupported saved state. */
+        }
     }
-    get enabled() { return this.settings.get_boolean('persist-layouts'); }
+    get enabled() {
+        return this.settings.get_boolean('persist-layouts');
+    }
     get(workspace, defaults, definitions) {
         if (!this.enabled) return null;
         const entry = this.data.workspaces[String(workspace.index() + 1)];
-        if (!entry || entry.defaults !== defaults ||
+        if (
+            !entry ||
+            entry.defaults !== defaults ||
             !Object.hasOwn(definitions, entry.preset) ||
-            entry.definition !== JSON.stringify(definitions[entry.preset])) return null;
+            entry.definition !== JSON.stringify(definitions[entry.preset])
+        )
+            return null;
         return entry;
     }
     save(workspace, defaults, preset, definition, trees) {
@@ -43,8 +63,10 @@ export class LayoutPersistence {
         const key = String(workspace.index() + 1);
         const old = this.data.workspaces[key];
         const fingerprint = JSON.stringify(definition);
-        const monitors = old?.preset === preset && old?.definition === fingerprint && old?.defaults === defaults
-            ? {...old.monitors} : {};
+        const monitors =
+            old?.preset === preset && old?.definition === fingerprint && old?.defaults === defaults
+                ? {...old.monitors}
+                : {};
         for (const [monitor, tree] of trees) monitors[monitor] = weightSnapshot(tree.root);
         this.data.workspaces[key] = {defaults, preset, definition: fingerprint, monitors};
         this.flush();
@@ -55,6 +77,7 @@ export class LayoutPersistence {
     }
     flush() {
         const value = JSON.stringify(this.data);
-        if (value !== this.settings.get_string('saved-layouts')) this.settings.set_string('saved-layouts', value);
+        if (value !== this.settings.get_string('saved-layouts'))
+            this.settings.set_string('saved-layouts', value);
     }
 }

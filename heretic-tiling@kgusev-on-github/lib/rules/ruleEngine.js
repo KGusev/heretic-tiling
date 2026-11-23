@@ -56,10 +56,10 @@
 import Meta from 'gi://Meta';
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
-import { Logger } from '../logger.js';
-import { STRING_MATCH_FIELDS } from './schema.js';
+import {Logger} from '../logger.js';
+import {STRING_MATCH_FIELDS} from './schema.js';
 import {validateLayouts, validateWorkspaceLayouts} from '../layouts/model.js';
-import { validateRule } from './validator.js';
+import {validateRule} from './validator.js';
 import {validateWorkspaceActions} from './workspaceActions.js';
 
 // ---------------------------------------------------------------------------
@@ -72,10 +72,10 @@ function escapeRegex(str) {
 
 /** Map window_type rule string → Meta.WindowType enum value. */
 const WINDOW_TYPE_MAP = {
-    normal:  Meta.WindowType.NORMAL,
-    dialog:  Meta.WindowType.DIALOG,
+    normal: Meta.WindowType.NORMAL,
+    dialog: Meta.WindowType.DIALOG,
     utility: Meta.WindowType.UTILITY,
-    splash:  Meta.WindowType.SPLASHSCREEN,
+    splash: Meta.WindowType.SPLASHSCREEN,
     tooltip: Meta.WindowType.TOOLTIP,
 };
 
@@ -89,15 +89,15 @@ export class RuleEngine {
      * @param {number} [numWorkspaces] – number of workspaces (for validation)
      */
     constructor(rulesFilePath, numWorkspaces = 10) {
-        this._rulesFilePath  = rulesFilePath;
-        this._numWorkspaces  = numWorkspaces;
-        this._rules          = [];
+        this._rulesFilePath = rulesFilePath;
+        this._numWorkspaces = numWorkspaces;
+        this._rules = [];
         this._requiredFields = new Set(); // populated by _parseAndApply for lazy prop fetch
-        this._hasTitleRules  = false;     // true when any rule uses wm_title matcher
-        this._fileMonitor    = null;
-        this._loadCancel     = null;
-        this._reloadTimerId  = null;
-        this._log            = new Logger('RuleEngine');
+        this._hasTitleRules = false; // true when any rule uses wm_title matcher
+        this._fileMonitor = null;
+        this._loadCancel = null;
+        this._reloadTimerId = null;
+        this._log = new Logger('RuleEngine');
 
         this.layouts = {};
         this.workspaceLayouts = {};
@@ -182,16 +182,19 @@ export class RuleEngine {
             return;
         }
 
-        const actionErrors = validateWorkspaceActions(parsed.workspace_actions,
-            {numWorkspaces: this._numWorkspaces});
+        const actionErrors = validateWorkspaceActions(parsed.workspace_actions, {
+            numWorkspaces: this._numWorkspaces,
+        });
         if (actionErrors.length) {
             for (const error of actionErrors) this._log.warn(error);
         } else {
             this.workspaceActions = parsed.workspace_actions ?? [];
         }
 
-        const layoutErrors = [...validateLayouts(parsed.layouts),
-            ...validateWorkspaceLayouts(parsed.workspace_layouts, parsed.layouts)];
+        const layoutErrors = [
+            ...validateLayouts(parsed.layouts),
+            ...validateWorkspaceLayouts(parsed.workspace_layouts, parsed.layouts),
+        ];
         if (layoutErrors.length) {
             for (const error of layoutErrors) this._log.warn(error);
         } else {
@@ -199,9 +202,7 @@ export class RuleEngine {
             this.workspaceLayouts = parsed.workspace_layouts ?? {};
         }
 
-        const compiled = parsed.rules
-            .map((r, idx) => this._compileRule(r, idx))
-            .filter(Boolean);
+        const compiled = parsed.rules.map((r, idx) => this._compileRule(r, idx)).filter(Boolean);
 
         // Sort by priority (ascending). Stable sort preserves index order as
         // a tiebreaker because we set default priority = array index.
@@ -211,9 +212,7 @@ export class RuleEngine {
 
         // Compute the set of window property fields actually used by matchers.
         // This enables lazy fetching in _getWindowProps().
-        this._requiredFields = new Set(
-            this._rules.flatMap(r => r.matchers.map(m => m.field))
-        );
+        this._requiredFields = new Set(this._rules.flatMap((r) => r.matchers.map((m) => m.field)));
 
         // Flag whether any rule needs wm_title (drives notify::title signal).
         this._hasTitleRules = this._requiredFields.has('wm_title');
@@ -240,30 +239,28 @@ export class RuleEngine {
             // ----------------------------------------------------------------
             // Validate via the shared validator
             // ----------------------------------------------------------------
-            const errors = validateRule(raw, idx, { numWorkspaces: this._numWorkspaces });
+            const errors = validateRule(raw, idx, {numWorkspaces: this._numWorkspaces});
             if (errors.length > 0) {
-                for (const err of errors)
-                    this._log.warn(`${err} – skipping rule`);
+                for (const err of errors) this._log.warn(`${err} – skipping rule`);
                 return null;
             }
 
             // ----------------------------------------------------------------
             // Normalise actions
             // ----------------------------------------------------------------
-            const actions = { ...(raw.actions ?? {}) };
+            const actions = {...(raw.actions ?? {})};
 
             // move_to_workspace: 1-based (user) → 0-based (GNOME API)
-            if (actions.move_to_workspace != null)
-                actions.move_to_workspace -= 1;
+            if (actions.move_to_workspace != null) actions.move_to_workspace -= 1;
 
             // ----------------------------------------------------------------
             // Build matchers
             // ----------------------------------------------------------------
             const compiled = {
                 index: idx + 1,
-                comment:  raw.comment ?? '',
+                comment: raw.comment ?? '',
                 priority: typeof raw.priority === 'number' ? raw.priority : idx,
-                stop:     raw.stop === true,
+                stop: raw.stop === true,
                 matchers: [],
                 actions,
                 // Rules with a window_type matcher may apply to non-NORMAL windows.
@@ -278,34 +275,38 @@ export class RuleEngine {
                 const value = matchDef[jsonKey];
                 if (value === undefined || compiledPropKeys.has(propKey)) continue;
 
-                const re = typeof value === 'string'
-                    ? new RegExp(`^${escapeRegex(value)}$`, 'i')
-                    : new RegExp(value.regex, value.flags ?? 'i');
+                const re =
+                    typeof value === 'string'
+                        ? new RegExp(`^${escapeRegex(value)}$`, 'i')
+                        : new RegExp(value.regex, value.flags ?? 'i');
 
-                compiled.matchers.push({ field: propKey, re });
+                compiled.matchers.push({field: propKey, re});
                 compiledPropKeys.add(propKey);
             }
 
             // --- Boolean matcher: is_above ---
             if (matchDef.is_above !== undefined)
-                compiled.matchers.push({ field: 'is_above', boolValue: matchDef.is_above });
+                compiled.matchers.push({field: 'is_above', boolValue: matchDef.is_above});
 
             // --- Numeric matcher: workspace (1-based → 0-based) ---
             if (matchDef.workspace !== undefined)
-                compiled.matchers.push({ field: 'workspace', numValue: matchDef.workspace - 1 });
+                compiled.matchers.push({field: 'workspace', numValue: matchDef.workspace - 1});
 
             // --- Monitor index matcher ---
             if (matchDef.monitor !== undefined)
-                compiled.matchers.push({ field: 'monitor', numValue: matchDef.monitor });
+                compiled.matchers.push({field: 'monitor', numValue: matchDef.monitor});
 
             // --- Primary monitor boolean matcher ---
             if (matchDef.primary_monitor !== undefined)
-                compiled.matchers.push({ field: 'primary_monitor', boolValue: matchDef.primary_monitor });
+                compiled.matchers.push({
+                    field: 'primary_monitor',
+                    boolValue: matchDef.primary_monitor,
+                });
 
             // --- Window type matcher ---
             if (matchDef.window_type !== undefined) {
                 compiled.matchers.push({
-                    field:    'window_type',
+                    field: 'window_type',
                     numValue: WINDOW_TYPE_MAP[matchDef.window_type],
                 });
                 compiled.allowNonNormal = true;
@@ -327,13 +328,18 @@ export class RuleEngine {
     startMonitor() {
         try {
             const file = Gio.File.new_for_path(this._rulesFilePath);
-            this._fileMonitor = file.get_parent().monitor_directory(Gio.FileMonitorFlags.NONE, null);
+            this._fileMonitor = file
+                .get_parent()
+                .monitor_directory(Gio.FileMonitorFlags.NONE, null);
             this._fileMonitor.connect('changed', (_monitor, _file, _other, eventType) => {
-                if (_file?.get_path() !== this._rulesFilePath && _other?.get_path() !== this._rulesFilePath) return;
+                if (
+                    _file?.get_path() !== this._rulesFilePath &&
+                    _other?.get_path() !== this._rulesFilePath
+                )
+                    return;
                 if (eventType !== Gio.FileMonitorEvent.DELETED) {
                     this._log.debug('rules file changed – scheduling async reload');
-                    if (this._reloadTimerId)
-                        GLib.source_remove(this._reloadTimerId);
+                    if (this._reloadTimerId) GLib.source_remove(this._reloadTimerId);
                     this._reloadTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
                         this._reloadTimerId = null;
                         this._loadAsync();
@@ -390,17 +396,28 @@ export class RuleEngine {
 
     /** Read-only snapshot, using the same merge and stop logic as execution. */
     inspect(window) {
-        const properties = this._getWindowProps(window, new Set([
-            'wm_class', 'wm_class_instance', 'wm_title', 'workspace',
-            'monitor', 'primary_monitor', 'window_type', 'is_above',
-        ]));
+        const properties = this._getWindowProps(
+            window,
+            new Set([
+                'wm_class',
+                'wm_class_instance',
+                'wm_title',
+                'workspace',
+                'monitor',
+                'primary_monitor',
+                'window_type',
+                'is_above',
+            ]),
+        );
         const rules = [];
         const resolved = this._resolve(properties, rules);
         const actions = {...resolved.actions};
         if (actions.move_to_workspace != null) actions.move_to_workspace++;
         properties.workspace = properties.workspace < 0 ? null : properties.workspace + 1;
-        properties.window_type = Object.entries(WINDOW_TYPE_MAP)
-            .find(([, value]) => value === properties.window_type)?.[0] ?? properties.window_type;
+        properties.window_type =
+            Object.entries(WINDOW_TYPE_MAP).find(
+                ([, value]) => value === properties.window_type,
+            )?.[0] ?? properties.window_type;
         return {properties, rules, actions, allowNonNormal: resolved.allowNonNormal};
     }
 
@@ -413,16 +430,22 @@ export class RuleEngine {
                 if (trace) {
                     const actions = {...rule.actions};
                     if (actions.move_to_workspace != null) actions.move_to_workspace++;
-                    trace.push({index: rule.index, comment: rule.comment,
-                        priority: rule.priority, stop: rule.stop, actions});
+                    trace.push({
+                        index: rule.index,
+                        comment: rule.comment,
+                        priority: rule.priority,
+                        stop: rule.stop,
+                        actions,
+                    });
                 }
                 const label = rule.comment || `(priority ${rule.priority})`;
-                if (!trace) this._log.debug(
-                    `rule "${label}" matched window ` +
-                    (props.wm_class    != null ? `"${props.wm_class}" ` : '') +
-                    (props.wm_title    != null ? `title:"${props.wm_title}" ` : '') +
-                    (props.window_type != null ? `type:${props.window_type} ` : '')
-                );
+                if (!trace)
+                    this._log.debug(
+                        `rule "${label}" matched window ` +
+                            (props.wm_class != null ? `"${props.wm_class}" ` : '') +
+                            (props.wm_title != null ? `title:"${props.wm_title}" ` : '') +
+                            (props.window_type != null ? `type:${props.window_type} ` : ''),
+                    );
                 Object.assign(merged, rule.actions);
                 allowNonNormal ||= rule.allowNonNormal;
 
@@ -433,7 +456,7 @@ export class RuleEngine {
             }
         }
 
-        return { actions: merged, allowNonNormal };
+        return {actions: merged, allowNonNormal};
     }
 
     /**
@@ -446,38 +469,33 @@ export class RuleEngine {
     _getWindowProps(window, req = this._requiredFields) {
         const props = {};
 
-        if (req.has('wm_class'))
-            props.wm_class = window.get_wm_class() ?? null;
+        if (req.has('wm_class')) props.wm_class = window.get_wm_class() ?? null;
 
         if (req.has('wm_class_instance'))
             props.wm_class_instance = window.get_wm_class_instance() ?? null;
 
-        if (req.has('wm_title'))
-            props.wm_title = window.get_title() ?? null;
+        if (req.has('wm_title')) props.wm_title = window.get_title() ?? null;
 
-        if (req.has('is_above'))
-            props.is_above = window.is_above();
+        if (req.has('is_above')) props.is_above = window.is_above();
 
         if (req.has('workspace')) {
             const ws = window.get_workspace();
             props.workspace = ws ? ws.index() : -1;
         }
 
-        if (req.has('monitor'))
-            props.monitor = window.get_monitor();
+        if (req.has('monitor')) props.monitor = window.get_monitor();
 
         if (req.has('primary_monitor'))
             props.primary_monitor = window.get_monitor() === global.display.get_primary_monitor();
 
-        if (req.has('window_type'))
-            props.window_type = window.window_type;
+        if (req.has('window_type')) props.window_type = window.window_type;
 
         return props;
     }
 
     _ruleMatches(rule, props) {
         for (const matcher of rule.matchers) {
-            const { field } = matcher;
+            const {field} = matcher;
             const value = props[field];
             if ('boolValue' in matcher) {
                 if (value !== matcher.boolValue) return false;

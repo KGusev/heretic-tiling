@@ -12,8 +12,8 @@
  */
 
 import Meta from 'gi://Meta';
-import { Logger } from './logger.js';
-import { SignalTracker } from './utils/signalTracker.js';
+import {Logger} from './logger.js';
+import {SignalTracker} from './utils/signalTracker.js';
 
 /** Max wm_class polls after window creation (100 ms apart → ~2 s). */
 const WM_CLASS_RETRIES = 20;
@@ -28,9 +28,9 @@ export class WindowTracker {
     constructor(ruleEngine, dispatcher, sources) {
         this._ruleEngine = ruleEngine;
         this._dispatcher = dispatcher;
-        this._sources    = sources;
-        this._signals    = new SignalTracker();
-        this._log        = new Logger('WindowTracker');
+        this._sources = sources;
+        this._signals = new SignalTracker();
+        this._log = new Logger('WindowTracker');
 
         /**
          * Windows that already have a title monitor attached.
@@ -43,8 +43,9 @@ export class WindowTracker {
 
     /** Start listening for new windows and process the existing ones. */
     enable() {
-        this._signals.connect(global.display, 'window-created',
-            (_display, window) => this._onWindowCreated(window));
+        this._signals.connect(global.display, 'window-created', (_display, window) =>
+            this._onWindowCreated(window),
+        );
         this._unsubscribe = this._ruleEngine.onReload(() => this._applyToExistingWindows());
         this._applyToExistingWindows();
     }
@@ -80,8 +81,11 @@ export class WindowTracker {
         }
         const mru = global.display.get_tab_list(Meta.TabList.NORMAL_ALL, null);
         const rank = new Map(mru.map((w, i) => [w, i]));
-        const ordered = [...seen].sort((a, b) => ((rank.get(a) ?? Infinity) - (rank.get(b) ?? Infinity)) ||
-            a.get_stable_sequence() - b.get_stable_sequence());
+        const ordered = [...seen].sort(
+            (a, b) =>
+                (rank.get(a) ?? Infinity) - (rank.get(b) ?? Infinity) ||
+                a.get_stable_sequence() - b.get_stable_sequence(),
+        );
         for (const window of ordered) this._applyRules(window, -1);
     }
 
@@ -110,15 +114,13 @@ export class WindowTracker {
 
             if (window.get_wm_class()) {
                 // Capture the active workspace index now, not at signal-fire time.
-                const activeWsIndex =
-                    global.workspace_manager.get_active_workspace_index();
+                const activeWsIndex = global.workspace_manager.get_active_workspace_index();
                 this._applyRules(window, activeWsIndex);
                 this._signals.disconnect(window, guardSid);
                 return;
             }
 
-            if (attemptsLeft-- > 0)
-                this._sources.timeout(WM_CLASS_RETRY_MS, tryApply);
+            if (attemptsLeft-- > 0) this._sources.timeout(WM_CLASS_RETRY_MS, tryApply);
             else {
                 this._applyRules(window);
                 this._signals.disconnect(window, guardSid);
@@ -137,8 +139,8 @@ export class WindowTracker {
      *                                     -1 means "don't restore focus after move"
      */
     _applyRules(window, activeWsIndex = -1) {
-        const { actions, allowNonNormal } = this._ruleEngine.resolveActions(window);
-        this._dispatcher.apply(window, actions, { activeWsIndex, allowNonNormal });
+        const {actions, allowNonNormal} = this._ruleEngine.resolveActions(window);
+        this._dispatcher.apply(window, actions, {activeWsIndex, allowNonNormal});
 
         this._connectTitleMonitor(window);
     }
@@ -151,15 +153,13 @@ export class WindowTracker {
      * @param {Meta.Window} window
      */
     _connectTitleMonitor(window) {
-
         if (this._titleMonitored.has(window)) return;
 
         this._signals.connect(window, 'notify::title', () => {
             if (this._destroyed || !this._ruleEngine.hasTitleRules()) return;
             this._log.debug(`title changed: "${window.get_title()}" — re-applying rules`);
-            const { actions, allowNonNormal } = this._ruleEngine.resolveActions(window);
-            this._dispatcher.apply(window, actions,
-                { activeWsIndex: -1, allowNonNormal });
+            const {actions, allowNonNormal} = this._ruleEngine.resolveActions(window);
+            this._dispatcher.apply(window, actions, {activeWsIndex: -1, allowNonNormal});
         });
 
         // Clean up when the window is destroyed. Both handlers are tracked,

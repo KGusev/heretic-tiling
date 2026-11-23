@@ -13,11 +13,11 @@ import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
-import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 // Shared pure-JS rule validator (no GObject deps — safe in the prefs process).
 import {validateLayouts} from './lib/layouts/model.js';
-import { validateRules } from './lib/rules/validator.js';
+import {validateRules} from './lib/rules/validator.js';
 
 // ---------------------------------------------------------------------------
 // Preferences window
@@ -55,30 +55,51 @@ export default class HereticTilingPreferences extends ExtensionPreferences {
 
         const customWsIndicatorRow = new Adw.SwitchRow({
             title: 'Custom workspace indicator',
-            subtitle: 'Replace the default workspace dots with a numbered-button indicator in the panel',
+            subtitle:
+                'Replace the default workspace dots with a numbered-button indicator in the panel',
         });
-        settings.bind('custom-workspace-indicator', customWsIndicatorRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind(
+            'custom-workspace-indicator',
+            customWsIndicatorRow,
+            'active',
+            Gio.SettingsBindFlags.DEFAULT,
+        );
         wsGroup.add(customWsIndicatorRow);
 
         const scrollSwitchRow = new Adw.SwitchRow({
             title: 'Scroll to switch workspace',
             subtitle: 'Scroll the mouse wheel over the indicator to switch workspaces',
         });
-        settings.bind('workspace-scroll-switch', scrollSwitchRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind(
+            'workspace-scroll-switch',
+            scrollSwitchRow,
+            'active',
+            Gio.SettingsBindFlags.DEFAULT,
+        );
         wsGroup.add(scrollSwitchRow);
 
         const highlightEmptyRow = new Adw.SwitchRow({
             title: 'Highlight empty workspaces',
             subtitle: 'Dim workspace buttons that contain no windows',
         });
-        settings.bind('highlight-empty-workspaces', highlightEmptyRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind(
+            'highlight-empty-workspaces',
+            highlightEmptyRow,
+            'active',
+            Gio.SettingsBindFlags.DEFAULT,
+        );
         wsGroup.add(highlightEmptyRow);
 
         const middleClickMoveRow = new Adw.SwitchRow({
             title: 'Middle-click to move window',
             subtitle: 'Middle-click a workspace button to move the focused window there',
         });
-        settings.bind('middle-click-move', middleClickMoveRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind(
+            'middle-click-move',
+            middleClickMoveRow,
+            'active',
+            Gio.SettingsBindFlags.DEFAULT,
+        );
         wsGroup.add(middleClickMoveRow);
 
         // ------------------------------------------------------------------ Focus group
@@ -90,32 +111,59 @@ export default class HereticTilingPreferences extends ExtensionPreferences {
 
         const focusOnKillRow = new Adw.SwitchRow({
             title: 'Focus front-placed window on close',
-            subtitle: 'When closing the focused window, focus the remaining window that is topmost in the stacking order',
+            subtitle:
+                'When closing the focused window, focus the remaining window that is topmost in the stacking order',
         });
-        settings.bind('focus-next-on-close', focusOnKillRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind(
+            'focus-next-on-close',
+            focusOnKillRow,
+            'active',
+            Gio.SettingsBindFlags.DEFAULT,
+        );
         focusGroup.add(focusOnKillRow);
 
         const centerCursorRow = new Adw.SwitchRow({
             title: 'Center cursor on focused window',
-            subtitle: 'Move the cursor to the window center whenever focus changes. Changes apply immediately.',
+            subtitle:
+                'Move the cursor to the window center whenever focus changes. Changes apply immediately.',
         });
-        settings.bind('center-cursor-on-focus', centerCursorRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind(
+            'center-cursor-on-focus',
+            centerCursorRow,
+            'active',
+            Gio.SettingsBindFlags.DEFAULT,
+        );
         focusGroup.add(centerCursorRow);
 
         const dimRow = new Adw.SwitchRow({
             title: 'Dim unfocused windows',
-            subtitle: 'Darken inactive windows to highlight the focused window. Applies immediately.',
+            subtitle:
+                'Darken inactive windows to highlight the focused window. Applies immediately.',
         });
         settings.bind('dim-unfocused-windows', dimRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         focusGroup.add(dimRow);
         const dimStrengthRow = new Adw.SpinRow({
             title: 'Dimming strength (%)',
             subtitle: 'Brightness reduction for inactive windows; suspended in overview.',
-            adjustment: new Gtk.Adjustment({lower: 0, upper: 80,
-                step_increment: 5, page_increment: 10}),
+            adjustment: new Gtk.Adjustment({
+                lower: 0,
+                upper: 80,
+                step_increment: 5,
+                page_increment: 10,
+            }),
         });
-        settings.bind('unfocused-window-dim-percent', dimStrengthRow, 'value', Gio.SettingsBindFlags.DEFAULT);
-        settings.bind('dim-unfocused-windows', dimStrengthRow, 'sensitive', Gio.SettingsBindFlags.GET);
+        settings.bind(
+            'unfocused-window-dim-percent',
+            dimStrengthRow,
+            'value',
+            Gio.SettingsBindFlags.DEFAULT,
+        );
+        settings.bind(
+            'dim-unfocused-windows',
+            dimStrengthRow,
+            'sensitive',
+            Gio.SettingsBindFlags.GET,
+        );
         focusGroup.add(dimStrengthRow);
 
         // ------------------------------------------------------------------ Rules file group
@@ -125,42 +173,66 @@ export default class HereticTilingPreferences extends ExtensionPreferences {
             'config.json',
         ]);
 
-        const layoutGroup = new Adw.PreferencesGroup({title: 'Layout',
-            description: 'Default applies after reloading the extension. Optionally remember workspace selections and splitter sizes.'});
+        const layoutGroup = new Adw.PreferencesGroup({
+            title: 'Layout',
+            description:
+                'Default applies after reloading the extension. Optionally remember workspace selections and splitter sizes.',
+        });
         page.add(layoutGroup);
         let layoutNames = ['none', 'hbox', 'vbox'];
         try {
             const [, bytes] = Gio.File.new_for_path(rulesPath).load_contents(null);
             const config = JSON.parse(new TextDecoder().decode(bytes));
-            if (!validateLayouts(config.layouts).length) layoutNames.push(...Object.keys(config.layouts ?? {}));
-        } catch (_) { /* Config may not exist until the first enable. */ }
+            if (!validateLayouts(config.layouts).length)
+                layoutNames.push(...Object.keys(config.layouts ?? {}));
+        } catch (_) {
+            /* Config may not exist until the first enable. */
+        }
         const selected = settings.get_string('default-layout');
         if (!layoutNames.includes(selected)) layoutNames.push(selected);
         const labels = {none: 'None', hbox: 'Horizontal', vbox: 'Vertical'};
-        const layoutRow = new Adw.ComboRow({title: 'Default layout',
-            model: Gtk.StringList.new(layoutNames.map(n => labels[n] ?? n)),
-            selected: layoutNames.indexOf(selected)});
-        layoutRow.connect('notify::selected', () => settings.set_string('default-layout', layoutNames[layoutRow.selected]));
+        const layoutRow = new Adw.ComboRow({
+            title: 'Default layout',
+            model: Gtk.StringList.new(layoutNames.map((n) => labels[n] ?? n)),
+            selected: layoutNames.indexOf(selected),
+        });
+        layoutRow.connect('notify::selected', () =>
+            settings.set_string('default-layout', layoutNames[layoutRow.selected]),
+        );
         layoutGroup.add(layoutRow);
-        const persistRow = new Adw.SwitchRow({title: 'Remember layouts and splitter sizes',
-            subtitle: 'Save workspace choices and monitor proportions across reloads. Reset layout in the workspace menu restores configured defaults.'});
+        const persistRow = new Adw.SwitchRow({
+            title: 'Remember layouts and splitter sizes',
+            subtitle:
+                'Save workspace choices and monitor proportions across reloads. Reset layout in the workspace menu restores configured defaults.',
+        });
         settings.bind('persist-layouts', persistRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         layoutGroup.add(persistRow);
         const resizeGridRow = new Adw.SpinRow({
             title: 'Resize grid step (%)',
-            subtitle: 'Win+Shift+Arrow in Resize mode snaps tile sizes to this percentage grid. Applies immediately.',
-            adjustment: new Gtk.Adjustment({lower: 1, upper: 50,
-                step_increment: 1, page_increment: 5}),
+            subtitle:
+                'Win+Shift+Arrow in Resize mode snaps tile sizes to this percentage grid. Applies immediately.',
+            adjustment: new Gtk.Adjustment({
+                lower: 1,
+                upper: 50,
+                step_increment: 1,
+                page_increment: 5,
+            }),
         });
         settings.bind('resize-grid-step', resizeGridRow, 'value', Gio.SettingsBindFlags.DEFAULT);
         layoutGroup.add(resizeGridRow);
-        layoutGroup.add(new Adw.ActionRow({title: 'Layout shortcuts',
-            subtitle: 'Super+H: horizontal · Super+V: vertical. Drag splitters to resize; Shift resizes both groups proportionally.'}));
+        layoutGroup.add(
+            new Adw.ActionRow({
+                title: 'Layout shortcuts',
+                subtitle:
+                    'Super+H: horizontal · Super+V: vertical. Drag splitters to resize; Shift resizes both groups proportionally.',
+            }),
+        );
 
         const rulesGroup = new Adw.PreferencesGroup({
             title: 'Rules',
-            description: 'Window rules are loaded from a JSON file in your config directory.\n' +
-                         'Edit the file and save — it reloads automatically.',
+            description:
+                'Window rules are loaded from a JSON file in your config directory.\n' +
+                'Edit the file and save — it reloads automatically.',
         });
         page.add(rulesGroup);
 
@@ -231,7 +303,7 @@ export default class HereticTilingPreferences extends ExtensionPreferences {
                 }
                 const text = new TextDecoder().decode(bytes);
                 const numWorkspaces = settings.get_int('num-workspaces');
-                const { total, errors } = validateRules(text, { numWorkspaces });
+                const {total, errors} = validateRules(text, {numWorkspaces});
                 if (errors.length === 0) {
                     validateStatusLabel.set_text(`✓ ${total} rule(s), no errors`);
                     validateStatusLabel.remove_css_class('error');
@@ -239,8 +311,8 @@ export default class HereticTilingPreferences extends ExtensionPreferences {
                 } else {
                     validateStatusLabel.set_text(
                         `✗ ${total} rule(s), ${errors.length} error(s):\n` +
-                        errors.slice(0, 5).join('\n') +
-                        (errors.length > 5 ? `\n… and ${errors.length - 5} more` : '')
+                            errors.slice(0, 5).join('\n') +
+                            (errors.length > 5 ? `\n… and ${errors.length - 5} more` : ''),
                     );
                     validateStatusLabel.remove_css_class('success');
                     validateStatusLabel.add_css_class('error');

@@ -20,7 +20,7 @@ import Meta from 'gi://Meta';
 import Clutter from 'gi://Clutter';
 import {SignalTracker} from './utils/signalTracker.js';
 import {SourceTracker} from './utils/sourceTracker.js';
-import { Logger } from './logger.js';
+import {Logger} from './logger.js';
 
 export class FocusManager {
     /** Own resources so toggling focus never disconnects another subsystem. */
@@ -30,7 +30,7 @@ export class FocusManager {
         this._sources = new SourceTracker();
         this._signals = new SignalTracker();
         this._focused = null;
-        this._log     = new Logger('FocusManager');
+        this._log = new Logger('FocusManager');
     }
 
     /** Start tracking focus and window destruction. */
@@ -47,17 +47,24 @@ export class FocusManager {
             // Let focus redirects and queued layout changes settle before moving.
             this._centerSource = this._sources.timeout(16, () => {
                 this._centerSource = null;
-                if (global.display.focus_window !== window ||
-                    !this._settings.get_boolean('center-cursor-on-focus')) return;
+                if (
+                    global.display.focus_window !== window ||
+                    !this._settings.get_boolean('center-cursor-on-focus')
+                )
+                    return;
                 const rect = window.get_frame_rect();
                 if (rect.width <= 0 || rect.height <= 0) return;
-                Clutter.get_default_backend().get_default_seat().warp_pointer(
-                    Math.round(rect.x + rect.width / 2),
-                    Math.round(rect.y + rect.height / 2));
+                Clutter.get_default_backend()
+                    .get_default_seat()
+                    .warp_pointer(
+                        Math.round(rect.x + rect.width / 2),
+                        Math.round(rect.y + rect.height / 2),
+                    );
             });
         });
-        this._signals.connect(global.display, 'window-created',
-            (_display, window) => this._watchWindow(window));
+        this._signals.connect(global.display, 'window-created', (_display, window) =>
+            this._watchWindow(window),
+        );
     }
 
     /** Disconnect handlers and cancel this manager's pending callbacks. */
@@ -110,12 +117,14 @@ export class FocusManager {
             // demanding attention on other workspaces. Filter those explicitly.
             const candidates = global.display
                 .get_tab_list(Meta.TabList.NORMAL_ALL, activeWs)
-                .filter(win =>
-                    !win.minimized &&
-                    !this._isSticky(win) &&
-                    win !== removed &&
-                    win.get_workspace() === workspace &&
-                    win.get_window_type() === Meta.WindowType.NORMAL);
+                .filter(
+                    (win) =>
+                        !win.minimized &&
+                        !this._isSticky(win) &&
+                        win !== removed &&
+                        win.get_workspace() === workspace &&
+                        win.get_window_type() === Meta.WindowType.NORMAL,
+                );
 
             if (candidates.length === 0) {
                 this._log.debug('no candidate window to focus after kill');

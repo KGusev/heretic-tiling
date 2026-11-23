@@ -8,9 +8,15 @@
 
 import Meta from 'gi://Meta';
 import {
-    actionMoveToWorkspace, actionMoveToMonitor,
-    actionMaximize, actionUnmaximize, actionMinimize,
-    actionPlace, actionOpacity, actionFocus, actionNoFocus,
+    actionMoveToWorkspace,
+    actionMoveToMonitor,
+    actionMaximize,
+    actionUnmaximize,
+    actionMinimize,
+    actionPlace,
+    actionOpacity,
+    actionFocus,
+    actionNoFocus,
 } from './windowActions.js';
 
 export class ActionDispatcher {
@@ -21,7 +27,7 @@ export class ActionDispatcher {
     constructor(stickyManager, sources, layouts = null) {
         this._layouts = layouts;
         this._generations = new WeakMap();
-        this._sticky  = stickyManager;
+        this._sticky = stickyManager;
         this._sources = sources;
     }
 
@@ -49,49 +55,47 @@ export class ActionDispatcher {
         const generation = (this._generations.get(window) ?? 0) + 1;
         this._generations.set(window, generation);
 
-        const { activeWsIndex = -1, allowNonNormal = false } = opts;
+        const {activeWsIndex = -1, allowNonNormal = false} = opts;
 
         const isNormal = window.window_type === Meta.WindowType.NORMAL;
         if (!isNormal && !allowNonNormal) return;
 
         // sticky: true → make sticky; sticky: false → remove sticky state
-        if (actions.sticky === true)
-            this._sticky.stick(window);
-        else if (actions.sticky === false)
-            this._sticky.unstick(window);
+        if (actions.sticky === true) this._sticky.stick(window);
+        else if (actions.sticky === false) this._sticky.unstick(window);
 
         if (actions.move_to_workspace != null)
             actionMoveToWorkspace(window, actions.move_to_workspace, activeWsIndex);
 
-        if (actions.move_to_monitor != null)
-            actionMoveToMonitor(window, actions.move_to_monitor);
+        if (actions.move_to_monitor != null) actionMoveToMonitor(window, actions.move_to_monitor);
 
         if (actions.minimize) actionMinimize(window);
         const managed = this._layouts?.reconcileWindow(window, actions) ?? false;
 
         // maximize: true → maximize; maximize: false → unmaximize
-        if (!managed && actions.maximize === true)
-            actionMaximize(window);
-        else if (!managed && actions.maximize === false)
-            actionUnmaximize(window);
+        if (!managed && actions.maximize === true) actionMaximize(window);
+        else if (!managed && actions.maximize === false) actionUnmaximize(window);
 
         // place comes after maximize/minimize so it can override the maximized state
         if (!managed && actions.place != null)
-            actionPlace(window, actions.place, this._sources, () =>
-                this._generations.get(window) === generation && !this._layouts?.isManaged(window));
+            actionPlace(
+                window,
+                actions.place,
+                this._sources,
+                () =>
+                    this._generations.get(window) === generation &&
+                    !this._layouts?.isManaged(window),
+            );
 
-        if (actions.opacity != null)
-            actionOpacity(window, actions.opacity);
+        if (actions.opacity != null) actionOpacity(window, actions.opacity);
 
         // focus comes last so the window's final workspace/position is what
         // gets focused; it overrides the previous-workspace restore of
         // move_to_workspace.
-        if (actions.focus === true)
-            actionFocus(window);
+        if (actions.focus === true) actionFocus(window);
 
         // no_focus runs after focus: it hands focus back to the previously
         // focused window when this window grabbed it (overlay windows).
-        if (actions.no_focus === true)
-            actionNoFocus(window, this._sources);
+        if (actions.no_focus === true) actionNoFocus(window, this._sources);
     }
 }

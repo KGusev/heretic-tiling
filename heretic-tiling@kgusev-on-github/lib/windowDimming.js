@@ -32,14 +32,25 @@ export class WindowDimming {
         const enabled = this._settings.get_boolean('dim-unfocused-windows') && !this._overview;
         const brightness = -this._settings.get_int('unfocused-window-dim-percent') / 100;
         const focused = global.display.focus_window;
-        const eligible = new Set([Meta.WindowType.NORMAL, Meta.WindowType.DIALOG,
-            Meta.WindowType.MODAL_DIALOG, Meta.WindowType.UTILITY]);
+        const eligible = new Set([
+            Meta.WindowType.NORMAL,
+            Meta.WindowType.DIALOG,
+            Meta.WindowType.MODAL_DIALOG,
+            Meta.WindowType.UTILITY,
+        ]);
         // Overlays that must not take focus must not darken the desktop either.
-        const canDim = focused && eligible.has(focused.get_window_type()) &&
+        const canDim =
+            focused &&
+            eligible.has(focused.get_window_type()) &&
             this._ruleEngine.resolveActions(focused).actions.no_focus !== true;
         for (const actor of global.get_window_actors()) {
             const window = actor.meta_window;
-            const dim = enabled && canDim && brightness < 0 && window && window !== focused &&
+            const dim =
+                enabled &&
+                canDim &&
+                brightness < 0 &&
+                window &&
+                window !== focused &&
                 eligible.has(window.get_window_type());
             if (!dim) {
                 this._remove(actor);

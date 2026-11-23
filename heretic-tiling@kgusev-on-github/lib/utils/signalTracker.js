@@ -29,7 +29,7 @@ export class SignalTracker {
      */
     connect(obj, signal, fn) {
         const id = obj.connect(signal, fn);
-        this._connections.push({ obj, id });
+        this._connections.push({obj, id});
         return id;
     }
 
@@ -40,10 +40,12 @@ export class SignalTracker {
      * @param {number} id
      */
     disconnect(obj, id) {
-        const idx = this._connections.findIndex(c => c.obj === obj && c.id === id);
+        const idx = this._connections.findIndex((c) => c.obj === obj && c.id === id);
         if (idx === -1) return;
         this._connections.splice(idx, 1);
-        try { obj.disconnect(id); } catch (_) {}
+        try {
+            obj.disconnect(id);
+        } catch (_) {}
     }
 
     /**
@@ -56,7 +58,9 @@ export class SignalTracker {
         const remaining = [];
         for (const c of this._connections) {
             if (c.obj === obj) {
-                try { c.obj.disconnect(c.id); } catch (_) {}
+                try {
+                    c.obj.disconnect(c.id);
+                } catch (_) {}
             } else {
                 remaining.push(c);
             }
@@ -66,8 +70,10 @@ export class SignalTracker {
 
     /** Disconnect all tracked connections. */
     disconnectAll() {
-        for (const { obj, id } of this._connections) {
-            try { obj.disconnect(id); } catch (_) {}
+        for (const {obj, id} of this._connections) {
+            try {
+                obj.disconnect(id);
+            } catch (_) {}
         }
         this._connections = [];
     }

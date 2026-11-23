@@ -1,8 +1,8 @@
 {
-  "uuid": "heretic-tiling@kgusev-on-github",
-  "name": "Heretic Tiling",
-  "description": "Yet another extension to improve tiling UX in GNOME",
-  "shell-version": ["46", "47", "48"],
-  "settings-schema": "org.gnome.shell.extensions.heretic-tiling",
-  "url": "https://github.com/KGusev/heretic-tiling"
+    "uuid": "heretic-tiling@kgusev-on-github",
+    "name": "Heretic Tiling",
+    "description": "Yet another extension to improve tiling UX in GNOME",
+    "shell-version": ["46", "47", "48"],
+    "settings-schema": "org.gnome.shell.extensions.heretic-tiling",
+    "url": "https://github.com/KGusev/heretic-tiling"
 }
