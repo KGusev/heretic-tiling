@@ -27,12 +27,14 @@ export class KeybindingsManager {
         settings,
         numWorkspaces = 10,
         mutterKeybindings = null,
+        monitorWorkspaces = null,
     ) {
         this._wmKeybindings = wmKeybindings;
         this._shellKeybindings = shellKeybindings;
         this._settings = settings;
         this._numWorkspaces = numWorkspaces;
         this._mutterKeybindings = mutterKeybindings;
+        this._monitorWorkspaces = monitorWorkspaces;
         this._savedMutterKeys = {};
         this._registeredKeys = [];
         this._previousWorkspace = null;
@@ -64,7 +66,10 @@ export class KeybindingsManager {
             this._wmKeybindings.set_strv(switchKey, []);
 
             this._savedKeys[moveKey] = this._wmKeybindings.get_strv(moveKey);
-            this._wmKeybindings.set_strv(moveKey, [`<Super><Shift>${num}`]);
+            this._wmKeybindings.set_strv(
+                moveKey,
+                this._monitorWorkspaces ? [] : [`<Super><Shift>${num}`],
+            );
         }
 
         // Disable Super+1..9 = "launch app from dock" shortcuts
@@ -175,11 +180,65 @@ export class KeybindingsManager {
                 () => this._switchWorkspace(i - 1),
             );
             this._registeredKeys.push(key);
+            if (this._monitorWorkspaces)
+                this._addMonitorBinding(`monitor-move-window-${i}`, () => this._moveWindow(i - 1));
         }
+        if (this._monitorWorkspaces) this._setupRelativeBindings();
+    }
+
+    _addMonitorBinding(key, handler) {
+        Main.wm.addKeybinding(
+            key,
+            this._settings,
+            Meta.KeyBindingFlags.NONE,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            handler,
+        );
+        this._registeredKeys.push(key);
+    }
+
+    _setupRelativeBindings() {
+        const previous = 'monitor-workspace-previous';
+        const next = 'monitor-workspace-next';
+        const accelerators = new Set(
+            [...this._settings.get_strv(previous), ...this._settings.get_strv(next)].map((key) =>
+                key.toLowerCase(),
+            ),
+        );
+        for (const dir of ['left', 'right', 'up', 'down']) {
+            const key = `switch-to-workspace-${dir}`;
+            this._savedKeys[key] = this._wmKeybindings.get_strv(key);
+            this._wmKeybindings.set_strv(
+                key,
+                this._savedKeys[key].filter(
+                    (accelerator) => !accelerators.has(accelerator.toLowerCase()),
+                ),
+            );
+        }
+        this._addMonitorBinding(previous, () => this._stepWorkspace(-1));
+        this._addMonitorBinding(next, () => this._stepWorkspace(1));
+    }
+
+    _stepWorkspace(delta) {
+        const monitor = this._monitorWorkspaces.currentMonitor;
+        const workspaces = this._monitorWorkspaces.workspacesOn(monitor);
+        const position = workspaces.indexOf(this._monitorWorkspaces.activeIndex(monitor));
+        this._monitorWorkspaces.activateWorkspace(workspaces[position + delta]);
+    }
+
+    _moveWindow(index) {
+        const window = global.display.get_focus_window();
+        const target = global.workspace_manager.get_workspace_by_index(index);
+        if (!window || !target || this._monitorWorkspaces.move(window, index)) return;
+        if (!window.is_on_all_workspaces()) window.change_workspace(target);
     }
 
     /** Only successful numbered-shortcut switches update this shared history. */
     _switchWorkspace(index) {
+        if (this._monitorWorkspaces) {
+            this._monitorWorkspaces.activateWorkspace(index);
+            return;
+        }
         const manager = global.workspace_manager;
         const current = manager.get_active_workspace();
         const requested = manager.get_workspace_by_index(index);

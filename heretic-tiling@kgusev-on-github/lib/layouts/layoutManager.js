@@ -6,11 +6,12 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {SignalTracker} from '../utils/signalTracker.js';
 import {SourceTracker} from '../utils/sourceTracker.js';
 import {Logger} from '../logger.js';
+import {getMaximizeFlags, maximizeWindow, unmaximizeWindow} from '../actions/windowActions.js';
 import {BUILTINS, LayoutTree, slots, geometry, resizeWindow} from './model.js';
 import {LayoutOverlay} from './overlay.js';
 
 export class LayoutManager {
-    constructor(settings, mutterSettings, engine) {
+    constructor(settings, mutterSettings, engine, workspaces = null) {
         this._default = settings.get_string('default-layout');
         this._settings = settings;
         this._persistence = new LayoutPersistence(settings);
@@ -18,6 +19,7 @@ export class LayoutManager {
         this._monitorKeys = null;
         this._mutter = mutterSettings;
         this._engine = engine;
+        this._workspaces = workspaces;
         this._catalog = engine.layouts;
         this._workspaceLayouts = engine.workspaceLayouts ?? {};
         this._states = new Map();
@@ -32,12 +34,12 @@ export class LayoutManager {
         this._requests = new Map();
         this._log = new Logger('LayoutManager');
         this._overlay = new LayoutOverlay(
-            () => {
-                const ws = global.workspace_manager.get_active_workspace();
-                this._save(ws, this._state(ws));
+            (workspace) => {
+                const ws = workspace ?? this.activeWorkspace();
+                if (ws) this._save(ws, this._state(ws));
                 this.queueAll();
             },
-            (window) => this.isManaged(window),
+            (window) => !window.minimized && this.isManaged(window),
         );
         this._destroyed = false;
     }
@@ -79,10 +81,66 @@ export class LayoutManager {
         this._overlay.update([]);
         this._monitorIdentity.refresh(Main.layoutManager.monitors, (keys) => {
             this._monitorKeys = keys;
+            this._workspaces?.setMonitorKeys(keys);
             for (const state of this._states.values()) state.trees.clear();
             this._requests.clear();
             this.queueAll();
         });
+    }
+    activeWorkspace(monitor = this._workspaces?.currentMonitor) {
+        const wm = global.workspace_manager;
+        if (!this._workspaces?.isSecondary(monitor)) return wm.get_active_workspace();
+        return this.workspaceAt(this._workspaces.activeIndex(monitor), monitor);
+    }
+    workspaceAt(index, monitor) {
+        if (index < 0) return null;
+        const native = global.workspace_manager.get_workspace_by_index(index);
+        return this._workspaces ? this._workspaces.scope(native, monitor) : native;
+    }
+    transferWorkspaceLayout(index, previous, monitor) {
+        if (!this._persistence.enabled || !this._monitorKeys) return;
+        const source = this.workspaceAt(index, previous);
+        const destination = this.workspaceAt(index, monitor);
+        if (!source || !destination) return;
+        const state = this._states.get(source);
+        if (state) this._save(source, state);
+        const saved = this._saved(source);
+        if (!saved) return;
+        const weights = saved.monitors?.[this._monitorKeys[previous]];
+        this._persistence.copy(
+            destination,
+            this._defaults(destination),
+            saved,
+            this._monitorKeys[monitor],
+            weights,
+        );
+        this._states.delete(destination);
+    }
+    _windowWorkspace(window) {
+        return this._workspaces ? this._workspaces.scopeForWindow(window) : window.get_workspace();
+    }
+    _layoutWorkspaces() {
+        const wm = global.workspace_manager;
+        const native = Array.from({length: wm.get_n_workspaces()}, (_, i) =>
+            wm.get_workspace_by_index(i),
+        );
+        if (!this._workspaces) return native;
+        return native
+            .map((ws) =>
+                this._workspaces.scope(ws, this._workspaces.monitorForWorkspace(ws.index())),
+            )
+            .filter(Boolean);
+    }
+    _workspaceHasMonitor(workspace, monitor) {
+        if (!this._workspaces) return true;
+        return workspace.native
+            ? this._workspaces.monitorForScope(workspace) === monitor
+            : !this._workspaces.isSecondary(monitor);
+    }
+    _workspaceVisible(workspace) {
+        if (!workspace.native) return true;
+        const monitor = this._workspaces.monitorForScope(workspace);
+        return monitor >= 0 && this._workspaces.activeIndex(monitor) === workspace.index();
     }
     get presets() {
         return [...BUILTINS, ...Object.keys(this._catalog)];
@@ -110,14 +168,27 @@ export class LayoutManager {
         return {none: null, hbox: null, vbox: null, ...this._catalog};
     }
     _saved(workspace) {
-        return this._persistence.get(workspace, this._defaults(workspace), this._definitions());
+        const saved = this._persistence.get(
+            workspace,
+            this._defaults(workspace),
+            this._definitions(),
+        );
+        // Older configurations stored secondary split weights alongside the primary preset.
+        if (saved || !workspace.native || this._persistence.has(workspace)) return saved;
+        return this._persistence.get(
+            workspace.native,
+            this._defaults(workspace),
+            this._definitions(),
+        );
     }
     _save(workspace, state) {
         if (!this._monitorKeys) return;
-        for (const tree of state.trees.values()) tree.savedWeights = null;
-        const trees = [...state.trees]
-            .filter(([, tree]) => slots(tree.root).filter((s) => s.window).length >= 2)
-            .map(([index, tree]) => [this._monitorKeys[index], tree]);
+        const trees = [];
+        for (const [monitor, tree] of state.trees) {
+            if (slots(tree.root).filter((slot) => slot.window).length < 2) continue;
+            tree.savedWeights = null;
+            trees.push([this._monitorKeys[monitor], tree]);
+        }
         this._persistence.save(
             workspace,
             this._defaults(workspace),
@@ -131,7 +202,7 @@ export class LayoutManager {
     }
     resetLayout(workspace) {
         this.applyPreset(workspace, this._workspaceDefault(workspace));
-        this._persistence.clear(workspace);
+        if (!workspace.native) this._persistence.clear(workspace);
     }
     getActivePreset(workspace) {
         return this._state(workspace).preset;
@@ -170,6 +241,7 @@ export class LayoutManager {
         return moved;
     }
     applyPreset(workspace, name) {
+        if (!workspace) return;
         this._overlay.cancel();
         const state = this._state(workspace);
         state.preset = this.presets.includes(name) ? name : 'hbox';
@@ -213,20 +285,23 @@ export class LayoutManager {
         this.queueAll();
     }
     _eligible(window) {
-        // allows_resize() is false while maximized: using it here creates a
-        // maximize → exclude → unmaximize → include loop on the Shell thread.
+        const secondary = this._workspaces?.isSecondary(window.get_monitor());
+        const eligibleWorkspace = secondary
+            ? Boolean(this._windowWorkspace(window))
+            : !window.is_on_all_workspaces() &&
+              !(
+                  this._mutter.get_boolean('workspaces-only-on-primary') &&
+                  window.get_monitor() !== Main.layoutManager.primaryIndex
+              );
+        // Interactive resize is unavailable while a window is maximized.
         return (
+            eligibleWorkspace &&
             window.window_type === Meta.WindowType.NORMAL &&
             window.resizeable &&
             !window.get_transient_for() &&
-            !window.is_on_all_workspaces() &&
             !this.isFloating(window) &&
-            !window.minimized &&
             !window.is_fullscreen() &&
-            !(
-                this._mutter.get_boolean('workspaces-only-on-primary') &&
-                window.get_monitor() !== Main.layoutManager.primaryIndex
-            )
+            (!window.minimized || this._workspaces?.ownsMinimize(window))
         );
     }
     isFloating(window) {
@@ -236,11 +311,12 @@ export class LayoutManager {
         const window = global.display.focus_window;
         if (
             !window ||
-            window.get_workspace() !== global.workspace_manager.get_active_workspace() ||
+            this._windowWorkspace(window) !== this.activeWorkspace(window.get_monitor()) ||
             window.window_type !== Meta.WindowType.NORMAL ||
             !window.resizeable ||
             window.get_transient_for() ||
-            window.is_on_all_workspaces() ||
+            (window.is_on_all_workspaces() &&
+                !this._workspaces?.isSecondary(window.get_monitor())) ||
             window.minimized ||
             window.is_fullscreen()
         )
@@ -256,7 +332,9 @@ export class LayoutManager {
             this._floating.set(window, memory);
         }
         if (memory.enabled === enabled) return;
-        const tree = this._states.get(window.get_workspace())?.trees.get(window.get_monitor());
+        const tree = this._states
+            .get(this._windowWorkspace(window))
+            ?.trees.get(window.get_monitor());
         if (enabled) {
             memory.tile = tree?.remember(window);
             memory.tree = tree;
@@ -271,7 +349,7 @@ export class LayoutManager {
         if (!enabled && tree === memory.tree && this.isManaged(window))
             tree.restore(window, memory.tile);
         if (enabled && restoreGeometry) {
-            if (window.get_maximized()) window.unmaximize(Meta.MaximizeFlags.BOTH);
+            if (getMaximizeFlags(window)) unmaximizeWindow(window);
             this._sources.idle(() => {
                 if (
                     !this._windows.has(window) ||
@@ -291,25 +369,26 @@ export class LayoutManager {
         this.queueAll();
     }
     focusFloating() {
-        const workspace = global.workspace_manager.get_active_workspace();
+        const workspace = this.activeWorkspace();
         const source = global.display.focus_window;
         const floating = !this.isFloating(source);
         const target = global.display
-            .get_tab_list(Meta.TabList.NORMAL_ALL, workspace)
+            .get_tab_list(Meta.TabList.NORMAL_ALL, workspace?.native ?? workspace)
             .find(
                 (w) =>
                     w !== source &&
-                    w.get_workspace() === workspace &&
+                    this._windowWorkspace(w) === workspace &&
                     w.window_type === Meta.WindowType.NORMAL &&
                     !w.minimized &&
                     !w.is_fullscreen() &&
-                    !w.is_on_all_workspaces() &&
+                    (!w.is_on_all_workspaces() || this._workspaces?.isSecondary(w.get_monitor())) &&
                     (floating ? this.isFloating(w) : this.isManaged(w)),
             );
         target?.activate(global.get_current_time());
     }
     reconcileWindow(window, actions = {}) {
         if (this._destroyed) return false;
+        this._workspaces?.track(window, actions);
         const previous = this._windows.get(window);
         if (!this._floating.has(window)) {
             const {x, y, width, height} = window.get_frame_rect();
@@ -366,13 +445,14 @@ export class LayoutManager {
     }
     isManaged(window) {
         if (!this._windows.has(window) || !this._eligible(window)) return false;
-        const state = this._states.get(window.get_workspace());
+        const state = this._states.get(this._windowWorkspace(window));
         return Boolean(state?.trees.get(window.get_monitor())?.has(window));
     }
     resizeDirection(direction) {
         const window = global.display.focus_window;
-        const workspace = global.workspace_manager.get_active_workspace();
-        if (!window || window.get_workspace() !== workspace || !this.isManaged(window)) return;
+        if (!window || !this.isManaged(window)) return;
+        const workspace = this._windowWorkspace(window);
+        if (workspace !== this.activeWorkspace(window.get_monitor())) return;
         this._overlay.cancel();
         const tree = this._states.get(workspace).trees.get(window.get_monitor());
         if (
@@ -393,7 +473,7 @@ export class LayoutManager {
         const target = this._directionTarget(source, direction, true);
         if (!target) return;
         this._overlay.cancel();
-        const workspace = source.get_workspace();
+        const workspace = this._windowWorkspace(source);
         const tree = this._states.get(workspace).trees.get(source.get_monitor());
         const all = slots(tree.root);
         const from = all.find((s) => s.window === source),
@@ -409,14 +489,19 @@ export class LayoutManager {
         target.activate(global.get_current_time());
     }
     _directionTarget(source, direction, sameMonitor = false) {
-        const workspace = global.workspace_manager.get_active_workspace();
-        if (!source || source.get_workspace() !== workspace || !this.isManaged(source)) return;
+        if (
+            !source ||
+            !this.isManaged(source) ||
+            this._windowWorkspace(source) !== this.activeWorkspace(source.get_monitor())
+        )
+            return;
         const candidates = [...this._windows.keys()]
             .filter(
                 (w) =>
                     w !== source &&
-                    w.get_workspace() === workspace &&
+                    !w.minimized &&
                     this.isManaged(w) &&
+                    this._windowWorkspace(w) === this.activeWorkspace(w.get_monitor()) &&
                     (!sameMonitor || w.get_monitor() === source.get_monitor()),
             )
             .sort((a, b) => a.get_stable_sequence() - b.get_stable_sequence())
@@ -424,27 +509,23 @@ export class LayoutManager {
         return directionalNeighbour(source.get_frame_rect(), candidates, direction);
     }
     _sync() {
-        // Workspace notifications can reconcile synchronously during a bulk
-        // move. Wait until all windows arrive before pruning either tree.
         if (!this._monitorKeys || this._movingWindows) return;
-        const wm = global.workspace_manager;
-        const workspaces = new Set(
-            Array.from({length: wm.get_n_workspaces()}, (_, i) => wm.get_workspace_by_index(i)),
-        );
+        const workspaces = new Set(this._layoutWorkspaces());
         for (const ws of this._states.keys()) if (!workspaces.has(ws)) this._states.delete(ws);
         for (const ws of workspaces) {
             const state = this._state(ws);
             if (state.preset === 'none') continue;
-            const mru = global.display.get_tab_list(Meta.TabList.NORMAL_ALL, ws);
+            const mru = global.display.get_tab_list(Meta.TabList.NORMAL_ALL, ws.native ?? ws);
             const rank = new Map(mru.map((w, i) => [w, i]));
             const windows = [...this._windows.keys()]
-                .filter((w) => w.get_workspace() === ws && this._eligible(w))
+                .filter((w) => this._windowWorkspace(w) === ws && this._eligible(w))
                 .sort(
                     (a, b) =>
                         (rank.get(a) ?? Infinity) - (rank.get(b) ?? Infinity) ||
                         a.get_stable_sequence() - b.get_stable_sequence(),
                 );
             for (let monitor = 0; monitor < Main.layoutManager.monitors.length; monitor++) {
+                if (!this._workspaceHasMonitor(ws, monitor)) continue;
                 let tree = state.trees.get(monitor);
                 if (!tree) {
                     tree = new LayoutTree(state.preset, this._catalog[state.preset]);
@@ -485,7 +566,7 @@ export class LayoutManager {
             if (this.isManaged(window)) continue;
             this._auto.delete(window);
             if (this._ownedMaximize.delete(window) && !window.is_fullscreen())
-                window.unmaximize(Meta.MaximizeFlags.BOTH);
+                unmaximizeWindow(window);
         }
     }
     queueRelayout(workspace) {
@@ -505,15 +586,13 @@ export class LayoutManager {
     }
     queueAll() {
         if (this._destroyed) return;
-        const wm = global.workspace_manager;
-        for (let i = 0; i < wm.get_n_workspaces(); i++)
-            this.queueRelayout(wm.get_workspace_by_index(i));
+        for (const workspace of this._layoutWorkspaces()) this.queueRelayout(workspace);
     }
     _same(a, b) {
         return ['x', 'y', 'width', 'height'].every((k) => a[k] === b[k]);
     }
     _layout(ws) {
-        if (!this._monitorKeys) return;
+        if (!this._monitorKeys || !this._workspaceVisible(ws)) return;
         const state = this._states.get(ws);
         if (!state) return;
         const auto = new Set();
@@ -542,16 +621,16 @@ export class LayoutManager {
                     if (auto.has(window)) {
                         this._auto.add(window);
                         this._requests.delete(window);
-                        if (window.get_maximized() !== Meta.MaximizeFlags.BOTH) {
+                        if (getMaximizeFlags(window) !== Meta.MaximizeFlags.BOTH) {
                             this._ownedMaximize.add(window);
-                            window.maximize(Meta.MaximizeFlags.BOTH);
+                            maximizeWindow(window);
                         }
                         continue;
                     }
                     this._auto.delete(window);
                     this._ownedMaximize.delete(window);
-                    if (window.get_maximized()) {
-                        window.unmaximize(Meta.MaximizeFlags.BOTH);
+                    if (getMaximizeFlags(window)) {
+                        unmaximizeWindow(window);
                         this._requests.delete(window);
                         // The maximization notifications schedule the settled geometry.
                         // Do not poll: Mutter may need a frame/client reply to finish.
@@ -565,11 +644,14 @@ export class LayoutManager {
                 }
             }
         for (const window of this._auto) {
-            if (auto.has(window) || (window.get_workspace() !== ws && this.isManaged(window)))
+            if (
+                auto.has(window) ||
+                (this._windowWorkspace(window) !== ws && this.isManaged(window))
+            )
                 continue;
             this._auto.delete(window);
             if (this._ownedMaximize.delete(window) && !window.is_fullscreen())
-                window.unmaximize(Meta.MaximizeFlags.BOTH);
+                unmaximizeWindow(window);
         }
     }
     _draw() {
@@ -577,29 +659,26 @@ export class LayoutManager {
             this._overlay.update([]);
             return;
         }
-        const ws = global.workspace_manager.get_active_workspace();
-        const state = this._states.get(ws);
         const descriptors = [];
-        if (
-            !Main.overview.visible &&
-            !Main.sessionMode.isLocked &&
-            !Main.sessionMode.isGreeter &&
-            state?.preset !== 'none'
-        ) {
-            for (const [monitor, tree] of state?.trees ?? []) {
+        if (!Main.overview.visible && !Main.sessionMode.isLocked && !Main.sessionMode.isGreeter) {
+            for (let monitor = 0; monitor < Main.layoutManager.monitors.length; monitor++) {
+                const ws = this.activeWorkspace(monitor);
+                const tree = this._states.get(ws)?.trees.get(monitor);
                 if (
-                    this._mutter.get_boolean('workspaces-only-on-primary') &&
-                    monitor !== Main.layoutManager.primaryIndex
+                    !tree ||
+                    (!this._workspaces &&
+                        this._mutter.get_boolean('workspaces-only-on-primary') &&
+                        monitor !== Main.layoutManager.primaryIndex)
                 )
                     continue;
                 if (global.display.get_monitor_in_fullscreen(monitor)) continue;
-                if (slots(tree.root).some((s) => this._auto.has(s.window))) continue;
+                if (slots(tree.root).some((slot) => this._auto.has(slot.window))) continue;
                 const result = geometry(tree.root, ws.get_work_area_for_monitor(monitor));
                 for (const leaf of result.leaves)
                     if (!leaf.node.window && leaf.rect.width > 0 && leaf.rect.height > 0)
                         descriptors.push(leaf);
                 for (const splitter of result.splitters)
-                    descriptors.push({rect: splitter.rect, splitter});
+                    descriptors.push({rect: splitter.rect, splitter, workspace: ws});
             }
         }
         this._overlay.update(descriptors);
@@ -613,7 +692,7 @@ export class LayoutManager {
         this._overlay.destroy();
         for (const window of this._ownedMaximize) {
             try {
-                if (!window.is_fullscreen()) window.unmaximize(Meta.MaximizeFlags.BOTH);
+                if (!window.is_fullscreen()) unmaximizeWindow(window);
             } catch (_) {
                 /* unmanaged */
             }

@@ -87,7 +87,12 @@ async function fixture() {
             },
             'gi://St': {default: {Widget}},
             'gi://Clutter': {default: Clutter},
-            'gi://Meta': {default: {Cursor: {DEFAULT: 0, EAST_RESIZE: 1, SOUTH_RESIZE: 2}}},
+            'gi://Meta': {
+                default: {
+                    is_wayland_compositor: () => false,
+                    Cursor: {DEFAULT: 0, EAST_RESIZE: 1, SOUTH_RESIZE: 2},
+                },
+            },
         },
         {global: {stage, window_group: group, display}},
     );

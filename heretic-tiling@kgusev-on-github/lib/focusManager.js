@@ -24,8 +24,9 @@ import {Logger} from './logger.js';
 
 export class FocusManager {
     /** Own resources so toggling focus never disconnects another subsystem. */
-    constructor(settings) {
+    constructor(settings, monitorWorkspaces = null) {
         this._settings = settings;
+        this._monitorWorkspaces = monitorWorkspaces;
         this._centerSource = null;
         this._sources = new SourceTracker();
         this._signals = new SignalTracker();
@@ -49,7 +50,8 @@ export class FocusManager {
                 this._centerSource = null;
                 if (
                     global.display.focus_window !== window ||
-                    !this._settings.get_boolean('center-cursor-on-focus')
+                    !this._settings.get_boolean('center-cursor-on-focus') ||
+                    this._monitorWorkspaces?.canCenterOn(window) === false
                 )
                     return;
                 const rect = window.get_frame_rect();

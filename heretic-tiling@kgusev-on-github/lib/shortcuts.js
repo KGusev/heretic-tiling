@@ -85,7 +85,8 @@ export class ShortcutsManager {
                 Shell.ActionMode.NORMAL,
                 () =>
                     this._layouts.applyPreset(
-                        global.workspace_manager.get_active_workspace(),
+                        this._layouts.activeWorkspace?.() ??
+                            global.workspace_manager.get_active_workspace(),
                         type,
                     ),
             );

@@ -41,8 +41,12 @@ export class WorkspaceIndicator {
         highlightEmpty = true,
         middleClickMove = true,
         layouts = null,
+        monitorWorkspaces = null,
+        monitor = null,
     ) {
         this._layouts = layouts;
+        this._monitorWorkspaces = monitorWorkspaces;
+        this._monitor = monitor;
         this._numWorkspaces = numWorkspaces;
         this._log = log;
         this._scrollSwitch = scrollSwitch;
@@ -65,32 +69,39 @@ export class WorkspaceIndicator {
             vertical: false,
         });
 
+        this._box.connect('destroy', () => {
+            this._buttons = [];
+        });
+
         // Scroll over the indicator switches workspaces (up = previous, down = next)
         this._connectSignal(this._box, 'scroll-event', (actor, event) => {
             if (!this._scrollSwitch) return Clutter.EVENT_PROPAGATE;
 
             const wm = global.workspace_manager;
-            const n = wm.get_n_workspaces();
-            let idx = wm.get_active_workspace_index();
+            const workspaces =
+                this._monitorWorkspaces?.workspacesOn(this._targetMonitor) ??
+                Array.from({length: wm.get_n_workspaces()}, (_, index) => index);
+            const n = workspaces.length;
+            if (!n) return Clutter.EVENT_STOP;
+            let position = workspaces.indexOf(this._activeIndex());
 
             switch (event.get_scroll_direction()) {
                 case Clutter.ScrollDirection.UP:
                     // Wrap around: scrolling up from the first workspace
                     // goes to the last one (infinite scroll).
-                    idx = (idx - 1 + n) % n;
+                    position = (position - 1 + n) % n;
                     break;
                 case Clutter.ScrollDirection.DOWN:
                     // Wrap around: scrolling down from the last workspace
                     // goes back to the first one (infinite scroll).
-                    idx = (idx + 1) % n;
+                    position = (position + 1) % n;
                     break;
                 default:
                     return Clutter.EVENT_PROPAGATE;
             }
 
-            const ws = wm.get_workspace_by_index(idx);
-            if (ws) ws.activate(global.get_current_time());
-            this._log?.debug(`scrolled to workspace ${idx + 1}`);
+            this._switchTo(workspaces[position]);
+            this._log?.debug(`scrolled to workspace ${workspaces[position] + 1}`);
             return Clutter.EVENT_STOP;
         });
 
@@ -120,6 +131,45 @@ export class WorkspaceIndicator {
     /** The St.BoxLayout to insert into the panel. */
     get box() {
         return this._box;
+    }
+
+    get _targetMonitor() {
+        return this._monitor ?? Main.layoutManager.primaryIndex;
+    }
+
+    refresh() {
+        this._refresh();
+        this._refreshWindows();
+        this._refreshUrgent();
+    }
+
+    _activeIndex() {
+        return (
+            this._monitorWorkspaces?.activeIndex(this._targetMonitor) ??
+            global.workspace_manager.get_active_workspace_index()
+        );
+    }
+
+    _switchTo(index) {
+        if (this._monitorWorkspaces?.activateWorkspace(index)) return;
+        const workspace = global.workspace_manager.get_workspace_by_index(index);
+        if (!workspace) return;
+        workspace.activate(global.get_current_time());
+    }
+
+    _ownerMonitor(index) {
+        return this._monitorWorkspaces?.monitorForWorkspace(index) ?? this._targetMonitor;
+    }
+
+    _windowsAt(index) {
+        const monitor = this._ownerMonitor(index);
+        if (this._monitorWorkspaces?.isSecondary(monitor))
+            return this._monitorWorkspaces.windowsAt(monitor, index);
+        const windows =
+            global.workspace_manager.get_workspace_by_index(index)?.list_windows() ?? [];
+        return this._monitorWorkspaces
+            ? windows.filter((win) => win.get_monitor() === monitor)
+            : windows;
     }
 
     /**
@@ -211,8 +261,7 @@ export class WorkspaceIndicator {
             // Capture `i` in closure
             const idx = i;
             btn.connect('clicked', () => {
-                const ws = global.workspace_manager.get_workspace_by_index(idx);
-                if (ws) ws.activate(global.get_current_time());
+                this._switchTo(idx);
                 this._log?.debug(`switched to workspace ${idx + 1}`);
             });
 
@@ -351,20 +400,38 @@ export class WorkspaceIndicator {
         const ws = wm.get_workspace_by_index(idx);
         if (!ws) return;
 
-        const now = global.get_current_time();
-
-        menu.addAction('Switch to workspace', () => ws.activate(now));
-        if (this._layouts) {
+        menu.addAction('Switch to workspace', () => this._switchTo(idx));
+        if (this._monitorWorkspaces && this._monitorWorkspaces.monitors.length > 1) {
+            const submenu = new PopupMenu.PopupSubMenuMenuItem('Assign to monitor');
+            const current = this._monitorWorkspaces.monitorForWorkspace(idx);
+            for (const monitor of this._monitorWorkspaces.monitors) {
+                const item = submenu.menu.addAction(
+                    this._monitorWorkspaces.monitorLabel(monitor.index),
+                    () => {
+                        if (this._monitorWorkspaces.bind(idx, monitor.index)) this._switchTo(idx);
+                    },
+                );
+                if (monitor.index === current) item.setOrnament(PopupMenu.Ornament.CHECK);
+                else if (
+                    current === Main.layoutManager.primaryIndex &&
+                    this._monitorWorkspaces.workspacesOn(current).length === 1
+                )
+                    item.setSensitive(false);
+            }
+            menu.addMenuItem(submenu);
+        }
+        const layout = this._layouts?.workspaceAt(idx, this._ownerMonitor(idx));
+        if (layout) {
             const submenu = new PopupMenu.PopupSubMenuMenuItem('Layout');
             const labels = {none: 'None', hbox: 'Horizontal', vbox: 'Vertical'};
             for (const preset of this._layouts.presets) {
                 const item = submenu.menu.addAction(labels[preset] ?? preset, () =>
-                    this._layouts.applyPreset(ws, preset),
+                    this._layouts.applyPreset(layout, preset),
                 );
-                if (this._layouts.getActivePreset(ws) === preset)
+                if (this._layouts.getActivePreset(layout) === preset)
                     item.setOrnament(PopupMenu.Ornament.CHECK);
             }
-            submenu.menu.addAction('Reset layout', () => this._layouts.resetLayout(ws));
+            submenu.menu.addAction('Reset layout', () => this._layouts.resetLayout(layout));
             menu.addMenuItem(submenu);
         }
 
@@ -372,32 +439,23 @@ export class WorkspaceIndicator {
         // empty AND the current active workspace has at least one movable
         // (non-sticky) window. Sticky windows are excluded because they appear
         // on every workspace, so they neither occupy the target nor can be moved.
-        const activeIdx = wm.get_active_workspace_index();
-        const activeWs = wm.get_workspace_by_index(activeIdx);
-
-        const targetEmpty = !ws.list_windows().some((win) => !win.is_on_all_workspaces());
-        const currentHasWindows = activeWs
-            ? activeWs.list_windows().some((win) => !win.is_on_all_workspaces())
-            : false;
-
-        if (targetEmpty && currentHasWindows && idx !== activeIdx) {
+        const activeIdx = this._activeIndex();
+        const movable = (index) =>
+            this._windowsAt(index).filter(
+                (win) =>
+                    this._monitorWorkspaces?.isSecondary(this._ownerMonitor(index)) ||
+                    !win.is_on_all_workspaces(),
+            );
+        const source = movable(activeIdx);
+        if (idx !== activeIdx && source.length && !movable(idx).length) {
             menu.addAction('Move all windows here', () => {
-                if (!activeWs) return;
-                let moved = 0;
-                if (this._layouts) {
-                    moved = this._layouts.moveAllWindows(activeWs, ws);
+                if (!this._monitorWorkspaces && this._layouts) {
+                    this._layouts.moveAllWindows(wm.get_workspace_by_index(activeIdx), ws);
                 } else
-                    for (const win of activeWs.list_windows()) {
-                        if (win.is_on_all_workspaces()) continue; // sticky — leave in place
-                        win.change_workspace(ws);
-                        moved++;
+                    for (const win of source) {
+                        if (!this._monitorWorkspaces?.move(win, idx)) win.change_workspace(ws);
                     }
-                // Switch to the target workspace so the user lands where the
-                // windows were just moved.
-                ws.activate(global.get_current_time());
-                this._log?.debug(
-                    `moved ${moved} window(s) from workspace ${activeIdx + 1} → ${idx + 1}`,
-                );
+                this._switchTo(idx);
             });
         }
     }
@@ -420,13 +478,13 @@ export class WorkspaceIndicator {
         if (!target) return;
 
         const win = global.display.get_focus_window();
-        if (!win || win.is_on_all_workspaces()) return;
-
-        const activeIdx = wm.get_active_workspace_index();
-        if (idx === activeIdx) return;
-
-        win.change_workspace(target);
-        target.activate(global.get_current_time());
+        if (!win || (this._monitorWorkspaces && win.get_monitor() !== this._targetMonitor)) return;
+        if (idx === this._activeIndex()) return;
+        if (!this._monitorWorkspaces?.move(win, idx)) {
+            if (win.is_on_all_workspaces()) return;
+            win.change_workspace(target);
+        }
+        this._switchTo(idx);
         this._log?.debug(`middle-click: moved "${win.get_title()}" → workspace ${idx + 1}`);
     }
 
@@ -436,11 +494,17 @@ export class WorkspaceIndicator {
      * it from all others.
      */
     _refresh() {
-        const activeIdx = global.workspace_manager.get_active_workspace_index();
+        const activeIdx = this._activeIndex();
 
         for (let i = 0; i < this._buttons.length; i++) {
             const btn = this._buttons[i];
-            if (i === activeIdx) {
+            const owner = this._ownerMonitor(i);
+            const remote = owner !== this._targetMonitor;
+            btn.visible = true;
+            if (remote) btn.add_style_class_name('workspace-button-remote');
+            else btn.remove_style_class_name('workspace-button-remote');
+            const active = this._monitorWorkspaces?.activeIndex(owner) ?? activeIdx;
+            if (i === active) {
                 if (!btn.has_style_class_name('workspace-button-active'))
                     btn.add_style_class_name('workspace-button-active');
             } else {
@@ -454,21 +518,8 @@ export class WorkspaceIndicator {
      * hint and toggle the `workspace-button-urgent` CSS class accordingly.
      */
     _refreshUrgent() {
-        const wm = global.workspace_manager;
-
         for (let i = 0; i < this._buttons.length; i++) {
-            const ws = wm.get_workspace_by_index(i);
-            let hasUrgent = false;
-
-            if (ws) {
-                for (const win of ws.list_windows()) {
-                    if (win.urgent || win.demands_attention) {
-                        hasUrgent = true;
-                        break;
-                    }
-                }
-            }
-
+            const hasUrgent = this._windowsAt(i).some((win) => win.urgent || win.demands_attention);
             const btn = this._buttons[i];
             if (hasUrgent) {
                 if (!btn.has_style_class_name('workspace-button-urgent'))
@@ -492,8 +543,6 @@ export class WorkspaceIndicator {
      * is removed from every button and never re-added.
      */
     _refreshWindows() {
-        const wm = global.workspace_manager;
-
         for (let i = 0; i < this._buttons.length; i++) {
             const btn = this._buttons[i];
 
@@ -502,10 +551,10 @@ export class WorkspaceIndicator {
                 continue;
             }
 
-            const ws = wm.get_workspace_by_index(i);
-            const hasWindows = ws
-                ? ws.list_windows().some((win) => !win.is_on_all_workspaces())
-                : false;
+            const secondary = this._monitorWorkspaces?.isSecondary(this._ownerMonitor(i));
+            const hasWindows = this._windowsAt(i).some(
+                (win) => secondary || !win.is_on_all_workspaces(),
+            );
 
             if (!hasWindows) {
                 if (!btn.has_style_class_name('workspace-button-empty'))
