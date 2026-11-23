@@ -29,16 +29,21 @@ export class LayoutOverlay {
             if (!actor) {
                 actor = new St.Widget({reactive: Boolean(d.splitter), track_hover: false,
                     style_class: d.splitter ? 'layout-splitter' : 'layout-placeholder-empty'});
-                this._actors.set(key, actor);
+                actor._descriptor = d;
                 global.window_group.add_child(actor);
                 if (d.splitter) {
+                    if (actor.set_cursor_type) actor.set_cursor_type(d.splitter.horizontal
+                        ? Clutter.CursorType.COL_RESIZE : Clutter.CursorType.ROW_RESIZE);
                     actor._border = new St.Widget({reactive: false, style_class: 'layout-separator'});
                     global.window_group.add_child(actor._border);
                     // On X11, reactive actors also need a stage input region;
                     // otherwise X delivers the press to the client underneath.
-                    Main.layoutManager.trackChrome(actor, {affectsInputRegion: true, affectsStruts: false});
+                    if (Meta.is_wayland_compositor?.() === false) {
+                        Main.layoutManager.trackChrome(actor, {affectsInputRegion: true, affectsStruts: false});
+                        actor._trackedChrome = true;
+                    }
                     actor.connect('enter-event', () => {
-                        global.display.set_cursor(actor._descriptor.splitter.horizontal ? Meta.Cursor.EAST_RESIZE : Meta.Cursor.SOUTH_RESIZE);
+                        global.display.set_cursor?.(actor._descriptor.splitter.horizontal ? Meta.Cursor.EAST_RESIZE : Meta.Cursor.SOUTH_RESIZE);
                         return Clutter.EVENT_PROPAGATE;
                     });
                     // Highlight only on pointer motion, not synthetic enter
@@ -46,17 +51,18 @@ export class LayoutOverlay {
                     actor.connect('motion-event', () => {
                         if (!this._drag) {
                             actor.add_style_pseudo_class('highlight');
-                            global.display.set_cursor(actor._descriptor.splitter.horizontal ? Meta.Cursor.EAST_RESIZE : Meta.Cursor.SOUTH_RESIZE);
+                            global.display.set_cursor?.(actor._descriptor.splitter.horizontal ? Meta.Cursor.EAST_RESIZE : Meta.Cursor.SOUTH_RESIZE);
                         }
                         return Clutter.EVENT_PROPAGATE;
                     });
                     actor.connect('leave-event', () => {
                         actor.remove_style_pseudo_class('highlight');
-                        if (!this._drag) global.display.set_cursor(Meta.Cursor.DEFAULT);
+                        if (!this._drag) global.display.set_cursor?.(Meta.Cursor.DEFAULT);
                         return Clutter.EVENT_PROPAGATE;
                     });
                     actor.connect('button-press-event', (_, event) => this._press(actor, event));
                 }
+                this._actors.set(key, actor);
             }
             actor._descriptor = d;
             actor.set_position(d.rect.x, d.rect.y);
@@ -71,10 +77,10 @@ export class LayoutOverlay {
         for (const [key, actor] of this._actors) {
             if (keep.has(key)) continue;
             if (this._drag?.actor === actor) this.cancel();
-            if (actor._descriptor.splitter) Main.layoutManager.untrackChrome(actor);
+            this._actors.delete(key);
+            if (actor._trackedChrome) Main.layoutManager.untrackChrome(actor);
             actor._border?.destroy();
             actor.destroy();
-            this._actors.delete(key);
         }
         this._restack();
     }
@@ -141,7 +147,7 @@ export class LayoutOverlay {
             const changed = weights?.some((w, i) => w !== d.weights[i]);
             if (changed) d.splitter.children.forEach((c, i) => { c.weight = weights[i]; });
             this._finish();
-            if (changed) this._changed();
+            if (changed) this._changed(d.actor._descriptor.workspace);
             return Clutter.EVENT_STOP;
         }
         if (event.type() === Clutter.EventType.MOTION) {
@@ -182,7 +188,7 @@ export class LayoutOverlay {
         }
         this._drag = null;
         this._clearHighlights();
-        global.display.set_cursor(Meta.Cursor.DEFAULT);
+        global.display.set_cursor?.(Meta.Cursor.DEFAULT);
     }
     cancel() {
         if (!this._drag) return;
@@ -193,7 +199,7 @@ export class LayoutOverlay {
         this._restackedId = null;
         this.cancel();
         for (const actor of this._actors.values()) {
-            if (actor._descriptor.splitter) Main.layoutManager.untrackChrome(actor);
+            if (actor._trackedChrome) Main.layoutManager.untrackChrome(actor);
             actor._border?.destroy();
             actor.destroy();
         }

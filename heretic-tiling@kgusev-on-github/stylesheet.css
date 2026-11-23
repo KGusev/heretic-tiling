@@ -3,6 +3,10 @@
    ─────────────────────────────────────────────────────────────────────────── */
 
 /* Outer horizontal container ─────────────────────────────────────────────── */
+.secondary-workspace-indicator {
+    background-color: #202020;
+}
+
 .workspace-indicator-box {
     spacing: 1px;
 }

@@ -52,6 +52,13 @@ export default class HereticTilingPreferences extends ExtensionPreferences {
         });
         settings.bind('num-workspaces', wsRow, 'value', Gio.SettingsBindFlags.DEFAULT);
         wsGroup.add(wsRow);
+        const independentWsRow = new Adw.SwitchRow({
+            title: 'Assign workspaces to monitors',
+            subtitle: 'Use one numbered workspace list and focus the monitor assigned to the selected workspace',
+        });
+        settings.bind('independent-workspaces', independentWsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        wsGroup.add(independentWsRow);
+
 
         const customWsIndicatorRow = new Adw.SwitchRow({
             title: 'Custom workspace indicator',

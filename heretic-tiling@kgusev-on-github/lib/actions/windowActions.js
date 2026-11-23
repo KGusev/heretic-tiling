@@ -16,6 +16,25 @@ import { PLACE_PRESETS } from '../rules/schema.js';
 
 const _log = new Logger('WindowActions');
 
+// GNOME 50 renamed the flags getter and made maximize/unmaximize parameterless.
+export function getMaximizeFlags(window) {
+    return window.get_maximize_flags?.() ?? window.get_maximized();
+}
+
+export function maximizeWindow(window) {
+    if (window.get_maximize_flags)
+        window.maximize();
+    else
+        window.maximize(Meta.MaximizeFlags.BOTH);
+}
+
+export function unmaximizeWindow(window) {
+    if (window.get_maximize_flags)
+        window.unmaximize();
+    else
+        window.unmaximize(Meta.MaximizeFlags.BOTH);
+}
+
 /**
  * Make the window always-on-top (floating / not tiled).
  * @param {Meta.Window} window
@@ -95,7 +114,7 @@ export function actionMoveToMonitor(window, target) {
 export function actionMaximize(window) {
     try {
         if (window.can_maximize()) {
-            window.maximize(Meta.MaximizeFlags.BOTH);
+            maximizeWindow(window);
             _log.debug(`actionMaximize: "${window.get_title()}"`);
         }
     } catch (e) {
@@ -109,7 +128,7 @@ export function actionMaximize(window) {
  */
 export function actionUnmaximize(window) {
     try {
-        window.unmaximize(Meta.MaximizeFlags.BOTH);
+        unmaximizeWindow(window);
         _log.debug(`actionUnmaximize: "${window.get_title()}"`);
     } catch (e) {
         _log.warn(`actionUnmaximize: ${e.message}`);
@@ -154,8 +173,8 @@ export function actionPlace(window, descriptor, sources, shouldApply = () => tru
         }
 
         // Unmaximize first so move_resize_frame takes effect.
-        if (window.get_maximized())
-            window.unmaximize(Meta.MaximizeFlags.BOTH);
+        if (getMaximizeFlags(window))
+            unmaximizeWindow(window);
 
         // Wait one idle tick so Mutter processes the unmaximize before resize.
         // The source is tracked so it is cancelled on extension disable.

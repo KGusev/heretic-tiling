@@ -48,7 +48,7 @@ export class ShortcutsManager {
         for (const type of ['hbox', 'vbox'])
             Main.wm.addKeybinding(`create-${type}-shortcut`, this._settings,
                 Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, () =>
-                    this._layouts.applyPreset(global.workspace_manager.get_active_workspace(), type));
+                    this._layouts.applyPreset(this._layouts.activeWorkspace?.() ?? global.workspace_manager.get_active_workspace(), type));
         Main.wm.addKeybinding(
             APP_GRID_KEY,
             this._settings,

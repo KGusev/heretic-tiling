@@ -32,7 +32,7 @@ async function fixture() {
         trackChrome(actor, params) { assert.equal(params.affectsInputRegion, true); assert.equal(params.affectsStruts, false); tracked.add(actor); },
         untrackChrome(actor) { assert.ok(tracked.delete(actor)); },
     }}, 'gi://St': {default: {Widget}}, 'gi://Clutter': {default: Clutter},
-        'gi://Meta': {default: {Cursor: {DEFAULT: 0, EAST_RESIZE: 1, SOUTH_RESIZE: 2}}}},
+        'gi://Meta': {default: {is_wayland_compositor: () => false, Cursor: {DEFAULT: 0, EAST_RESIZE: 1, SOUTH_RESIZE: 2}}}},
     {global: {stage, window_group: group, display}});
     const {LayoutOverlay} = await load('lib/layouts/overlay.js');
     const overlay = new LayoutOverlay(() => updates++, w => w.managed);

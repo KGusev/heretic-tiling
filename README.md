@@ -2,7 +2,7 @@
 
 A GNOME Shell extension that adds i3wm-style workspace keybindings and a
 JSON-driven window rule engine and automatic workspace layouts. Declares support
-for GNOME Shell 46, 47 and 48; see the validation notes below.
+for GNOME Shell 46, 47, 48 and 50; see the validation notes below.
 
 ---
 
@@ -337,6 +337,20 @@ journalctl -f -o cat /usr/bin/gnome-shell
 ```
 
 ---
+
+## Assign workspaces to monitors
+
+Enable **Preferences → Workspaces → Assign workspaces to monitors** and reload
+the extension. Each workspace number belongs to one monitor. Right-click a
+workspace number and select **Assign to monitor** to move its windows and
+saved layout to another display. By default, workspace 2 is assigned to the
+first secondary monitor when one is connected.
+
+In this mode, `Super+number` activates the assigned workspace and focuses its
+monitor. The other displays keep showing their current workspaces.
+`Super+Shift+number` moves the focused window to the selected workspace.
+With **Remember layouts and splitter sizes** enabled, the chosen layout and
+adjusted split proportions are restored after signing in again.
 
 ## Layouts
 

@@ -3,6 +3,72 @@
   <schema id="org.gnome.shell.extensions.heretic-tiling"
           path="/org/gnome/shell/extensions/heretic-tiling/">
 
+    <key name="independent-workspaces" type="b">
+      <default>false</default>
+      <summary>Switch workspaces independently on each monitor</summary>
+    </key>
+    <key name="previous-primary-only" type="i">
+      <range min="-1" max="1"/>
+      <default>-1</default>
+      <summary>GNOME workspace policy before enabling independent workspaces</summary>
+    </key>
+    <key name="workspace-monitor-bindings" type="s">
+      <default>''</default>
+      <summary>Monitor assigned to each numbered workspace</summary>
+    </key>
+    <key name="monitor-workspaces" type="s">
+      <default>'{}'</default>
+      <summary>Last active workspace on each secondary monitor</summary>
+    </key>
+    <key name="monitor-workspace-previous" type="as">
+      <default><![CDATA[['<Super>Page_Up', '<Super>KP_Prior', '<Super><Alt>Left', '<Control><Alt>Left', '<Control><Alt>Up']]]></default>
+      <summary>Switch to the previous workspace on the current monitor</summary>
+    </key>
+    <key name="monitor-workspace-next" type="as">
+      <default><![CDATA[['<Super>Page_Down', '<Super>KP_Next', '<Super><Alt>Right', '<Control><Alt>Right', '<Control><Alt>Down']]]></default>
+      <summary>Switch to the next workspace on the current monitor</summary>
+    </key>
+    <key name="monitor-move-window-1" type="as">
+      <default><![CDATA[['<Super><Shift>1']]]></default>
+      <summary>Move the focused window to workspace 1 on its monitor</summary>
+    </key>
+    <key name="monitor-move-window-2" type="as">
+      <default><![CDATA[['<Super><Shift>2']]]></default>
+      <summary>Move the focused window to workspace 2 on its monitor</summary>
+    </key>
+    <key name="monitor-move-window-3" type="as">
+      <default><![CDATA[['<Super><Shift>3']]]></default>
+      <summary>Move the focused window to workspace 3 on its monitor</summary>
+    </key>
+    <key name="monitor-move-window-4" type="as">
+      <default><![CDATA[['<Super><Shift>4']]]></default>
+      <summary>Move the focused window to workspace 4 on its monitor</summary>
+    </key>
+    <key name="monitor-move-window-5" type="as">
+      <default><![CDATA[['<Super><Shift>5']]]></default>
+      <summary>Move the focused window to workspace 5 on its monitor</summary>
+    </key>
+    <key name="monitor-move-window-6" type="as">
+      <default><![CDATA[['<Super><Shift>6']]]></default>
+      <summary>Move the focused window to workspace 6 on its monitor</summary>
+    </key>
+    <key name="monitor-move-window-7" type="as">
+      <default><![CDATA[['<Super><Shift>7']]]></default>
+      <summary>Move the focused window to workspace 7 on its monitor</summary>
+    </key>
+    <key name="monitor-move-window-8" type="as">
+      <default><![CDATA[['<Super><Shift>8']]]></default>
+      <summary>Move the focused window to workspace 8 on its monitor</summary>
+    </key>
+    <key name="monitor-move-window-9" type="as">
+      <default><![CDATA[['<Super><Shift>9']]]></default>
+      <summary>Move the focused window to workspace 9 on its monitor</summary>
+    </key>
+    <key name="monitor-move-window-10" type="as">
+      <default><![CDATA[['<Super><Shift>0']]]></default>
+      <summary>Move the focused window to workspace 10 on its monitor</summary>
+    </key>
+
     <key name="persist-layouts" type="b">
       <default>false</default>
       <summary>Remember layouts and splitter sizes</summary>
