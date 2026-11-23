@@ -1,0 +1,77 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Heretic Tiling — Workspace Indicator
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Outer horizontal container ─────────────────────────────────────────────── */
+.workspace-indicator-box {
+    spacing: 1px;
+}
+
+/* Individual workspace button ────────────────────────────────────────────── */
+.workspace-button {
+    border-radius: 6px;
+    padding: 1px 5px;
+    min-width: 18px;
+    font-weight: bold;
+    font-size: 0.8em;
+    color: rgba(255, 255, 255, 0.75);
+    transition-duration: 150ms;
+    transition-property: color, background-color, border-radius;
+}
+
+/* Hover state */
+.workspace-button:hover {
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Active workspace ────────────────────────────────────────────────────────── */
+.workspace-button-active {
+    color: rgba(255, 255, 255, 1.0);
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.workspace-button-active:hover {
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.22);
+}
+
+/* Empty workspace (no windows) — dimmed ──────────────────────────────────── */
+.workspace-button-empty {
+    color: rgba(255, 255, 255, 0.35);
+}
+
+/* Empty + active: the active workspace stays fully highlighted even if empty */
+.workspace-button-empty.workspace-button-active {
+    color: rgba(255, 255, 255, 1.0);
+}
+
+/* Urgent workspace (contains a window with urgent / demands-attention hint) ── */
+.workspace-button-urgent {
+    color: rgba(255, 180, 170, 1.0);
+    background-color: rgba(220, 80, 70, 0.25);
+}
+
+.workspace-button-urgent:hover {
+    background-color: rgba(220, 80, 70, 0.35);
+}
+
+/* Urgent + active: active styling wins for background, urgent tint for text */
+.workspace-button-urgent.workspace-button-active {
+    color: rgba(255, 180, 170, 1.0);
+    background-color: rgba(220, 80, 70, 0.35);
+}
+
+/* Layout widgets use logical pixels and remain below application windows. */
+.layout-splitter { background-color: transparent; }
+.layout-splitter:highlight { background-color: rgba(90, 160, 255, 0.75); }
+.layout-placeholder-empty { background-color: rgba(100, 130, 160, 0.12); border: 1px solid rgba(160, 180, 200, 0.25); }
+
+/* Non-interactive drag guide; application sizes commit on release. */
+.layout-splitter-preview { background-color: rgba(90, 160, 255, 0.95); }
+
+/* Persistent shared-edge border, independent of the wider resize hit target. */
+.layout-separator { background-color: #808080; }
+
+.tiling-resize-mode { color: #ffffff; background-color: #4a6080; border-radius: 4px; padding: 2px 8px; margin: 0 6px; font-weight: bold; }

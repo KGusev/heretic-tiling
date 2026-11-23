@@ -1,0 +1,15 @@
+.agents
+plans
+PLAN.md
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Generated GSettings schemas
+gschemas.compiled
+
+# Local formatting tools and cache
+node_modules/
+.venv/
+.ruff_cache/
