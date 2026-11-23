@@ -8,12 +8,20 @@ async function fixture(count = 10, arrows = false, fullscreen = []) {
     const bindings = new Map();
     const manager = {
         active: null,
-        get_active_workspace() { return this.active; },
-        get_workspace_by_index(i) { return this.workspaces[i] ?? null; },
-        get_n_workspaces() { return this.workspaces.length; },
+        get_active_workspace() {
+            return this.active;
+        },
+        get_workspace_by_index(i) {
+            return this.workspaces[i] ?? null;
+        },
+        get_n_workspaces() {
+            return this.workspaces.length;
+        },
     };
     manager.workspaces = Array.from({length: count}, () => ({
-        activate() { manager.active = this; },
+        activate() {
+            manager.active = this;
+        },
     }));
     manager.active = manager.workspaces[1];
     const wm = {
@@ -21,19 +29,34 @@ async function fixture(count = 10, arrows = false, fullscreen = []) {
             assert.equal(modes, 3);
             bindings.set(key, callback);
         },
-        removeKeybinding(key) { bindings.delete(key); },
+        removeKeybinding(key) {
+            bindings.delete(key);
+        },
     };
-    const context = vm.createContext({global: {workspace_manager: manager, get_current_time: () => 123}});
-    const module = new vm.SourceTextModule(readFileSync(new URL('../heretic-tiling@kgusev-on-github/lib/keybindings.js', import.meta.url), 'utf8'), {context});
-    await module.link(specifier => {
-        const exports = specifier === 'gi://Meta'
-            ? {default: {KeyBindingFlags: {NONE: 0}}}
-            : specifier === 'gi://Shell'
-                ? {default: {ActionMode: {NORMAL: 1, OVERVIEW: 2}}}
-                : {wm};
-        return new vm.SyntheticModule(Object.keys(exports), function () {
-            for (const [key, value] of Object.entries(exports)) this.setExport(key, value);
-        }, {context});
+    const context = vm.createContext({
+        global: {workspace_manager: manager, get_current_time: () => 123},
+    });
+    const module = new vm.SourceTextModule(
+        readFileSync(
+            new URL('../heretic-tiling@kgusev-on-github/lib/keybindings.js', import.meta.url),
+            'utf8',
+        ),
+        {context},
+    );
+    await module.link((specifier) => {
+        const exports =
+            specifier === 'gi://Meta'
+                ? {default: {KeyBindingFlags: {NONE: 0}}}
+                : specifier === 'gi://Shell'
+                  ? {default: {ActionMode: {NORMAL: 1, OVERVIEW: 2}}}
+                  : {wm};
+        return new vm.SyntheticModule(
+            Object.keys(exports),
+            function () {
+                for (const [key, value] of Object.entries(exports)) this.setExport(key, value);
+            },
+            {context},
+        );
     });
     await module.evaluate();
     const settings = () => ({
@@ -43,7 +66,9 @@ async function fixture(count = 10, arrows = false, fullscreen = []) {
             if (number > 12) throw new Error('Unknown native workspace key');
             return this.values.get(key) ?? [`original:${key}`];
         },
-        set_strv(key, value) { this.values.set(key, Array.from(value)); },
+        set_strv(key, value) {
+            this.values.set(key, Array.from(value));
+        },
     });
     const native = settings();
     native.values.set('toggle-fullscreen', fullscreen);
@@ -64,19 +89,35 @@ async function fixture(count = 10, arrows = false, fullscreen = []) {
     const keys = new module.namespace.KeybindingsManager(native, shell, {}, count, mutter);
     keys.setup();
     return {
-        keys, manager, native, shell, mutter, bindings,
-        press(n) { bindings.get(`toggle-workspace-${n}`)(); },
-        active() { return manager.workspaces.indexOf(manager.active) + 1; },
+        keys,
+        manager,
+        native,
+        shell,
+        mutter,
+        bindings,
+        press(n) {
+            bindings.get(`toggle-workspace-${n}`)();
+        },
+        active() {
+            return manager.workspaces.indexOf(manager.active) + 1;
+        },
     };
 }
 
 test('repeated number shortcuts toggle and share history', async () => {
     const f = await fixture();
-    for (const expected of [5, 2, 5, 2]) { f.press(5); assert.equal(f.active(), expected); }
-    f.press(5); f.press(3); f.press(3);
+    for (const expected of [5, 2, 5, 2]) {
+        f.press(5);
+        assert.equal(f.active(), expected);
+    }
+    f.press(5);
+    f.press(3);
+    f.press(3);
     assert.equal(f.active(), 5);
-    f.press(10); assert.equal(f.active(), 10);
-    f.press(10); assert.equal(f.active(), 5);
+    f.press(10);
+    assert.equal(f.active(), 10);
+    f.press(10);
+    assert.equal(f.active(), 5);
 });
 
 test('external switches do not update keyboard history', async () => {
@@ -89,15 +130,20 @@ test('external switches do not update keyboard history', async () => {
 
 test('no history, removed target, and failed activation preserve history', async () => {
     const f = await fixture();
-    f.press(2); assert.equal(f.active(), 2);
+    f.press(2);
+    assert.equal(f.active(), 2);
     f.press(5);
     f.manager.workspaces[2].activate = () => {};
-    f.press(3); assert.equal(f.active(), 5);
-    f.press(5); assert.equal(f.active(), 2);
+    f.press(3);
+    assert.equal(f.active(), 5);
+    f.press(5);
+    assert.equal(f.active(), 2);
     f.press(5);
     f.manager.workspaces.splice(1, 1);
-    f.press(4); assert.equal(f.active(), 4); // Same workspace object; previous was removed.
-    f.keys._switchWorkspace(100); assert.equal(f.active(), 4);
+    f.press(4);
+    assert.equal(f.active(), 4); // Same workspace object; previous was removed.
+    f.keys._switchWorkspace(100);
+    assert.equal(f.active(), 4);
 });
 
 test('configured counts, native move bindings, restoration, and fresh history', async () => {
@@ -113,7 +159,8 @@ test('configured counts, native move bindings, restoration, and fresh history', 
             for (const [key, value] of settings.values)
                 assert.deepEqual(value, key === 'toggle-fullscreen' ? [] : [`original:${key}`]);
         f.keys.setup();
-        f.press(1); assert.equal(f.active(), 1);
+        f.press(1);
+        assert.equal(f.active(), 1);
         f.keys.restore();
     }
 });
@@ -121,7 +168,7 @@ test('configured counts, native move bindings, restoration, and fresh history', 
 test('Win+F enables native fullscreen toggling and restores previous shortcuts', async () => {
     for (const original of [[], ['<Alt>F11'], ['<Super>F', '<Mod4>f', '<Alt>F11']]) {
         const f = await fixture(10, false, original);
-        const expected = [...original.filter(k => k === '<Alt>F11'), '<Super>f'];
+        const expected = [...original.filter((k) => k === '<Alt>F11'), '<Super>f'];
         assert.deepEqual(f.native.values.get('toggle-fullscreen'), expected);
         f.keys.restore();
         assert.deepEqual(f.native.values.get('toggle-fullscreen'), original);
@@ -141,7 +188,10 @@ test('arrow navigation frees native accelerators and restores alternatives on di
     assert.deepEqual(f.mutter.values.get('toggle-tiled-left'), ['<Alt>Left']);
     assert.deepEqual(f.mutter.values.get('toggle-tiled-right'), []);
     f.keys.restore();
-    assert.deepEqual(f.native.values.get('move-to-monitor-right'), ['<Shift><Super>Right', '<Alt>F9']);
+    assert.deepEqual(f.native.values.get('move-to-monitor-right'), [
+        '<Shift><Super>Right',
+        '<Alt>F9',
+    ]);
     assert.deepEqual(f.native.values.get('maximize'), ['<Super>Up', '<Alt>F10']);
     assert.deepEqual(f.mutter.values.get('toggle-tiled-left'), ['<Mod4>Left', '<Alt>Left']);
 });

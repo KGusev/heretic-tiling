@@ -3,29 +3,58 @@ import {test} from 'node:test';
 import {loader, Emitter} from './modules.mjs';
 
 async function fixture() {
-    const bindings = new Map(), wm = new Emitter(), actions = [];
+    const bindings = new Map(),
+        wm = new Emitter(),
+        actions = [];
     let destroyed = false;
-    const load = loader({
-        'gi://Meta': {default: {KeyBindingFlags: {NONE: 0, IGNORE_AUTOREPEAT: 16}}},
-        'gi://Shell': {default: {ActionMode: {NORMAL: 1, OVERVIEW: 2}}},
-        'gi://Clutter': {default: {ActorAlign: {CENTER: 2}}},
-        'gi://St': {default: {Label: class { constructor(props) { Object.assign(this, props); } destroy() { destroyed = true; } }}},
-        'resource:///org/gnome/shell/ui/main.js': {panel: {_leftBox: {add_child() {}}},
-            wm: {addKeybinding: (name, settings, flags, mode, fn) => bindings.set(name, fn),
-                removeKeybinding: name => bindings.delete(name)}},
-        'resource:///org/gnome/shell/ui/overviewControls.js': {ControlsState: {APP_GRID: 1}},
-    }, {global: {workspace_manager: wm}});
+    const load = loader(
+        {
+            'gi://Meta': {default: {KeyBindingFlags: {NONE: 0, IGNORE_AUTOREPEAT: 16}}},
+            'gi://Shell': {default: {ActionMode: {NORMAL: 1, OVERVIEW: 2}}},
+            'gi://Clutter': {default: {ActorAlign: {CENTER: 2}}},
+            'gi://St': {
+                default: {
+                    Label: class {
+                        constructor(props) {
+                            Object.assign(this, props);
+                        }
+                        destroy() {
+                            destroyed = true;
+                        }
+                    },
+                },
+            },
+            'resource:///org/gnome/shell/ui/main.js': {
+                panel: {_leftBox: {add_child() {}}},
+                wm: {
+                    addKeybinding: (name, settings, flags, mode, fn) => bindings.set(name, fn),
+                    removeKeybinding: (name) => bindings.delete(name),
+                },
+            },
+            'resource:///org/gnome/shell/ui/overviewControls.js': {ControlsState: {APP_GRID: 1}},
+        },
+        {global: {workspace_manager: wm}},
+    );
     const {ShortcutsManager} = await load('lib/shortcuts.js');
-    const shortcuts = new ShortcutsManager({}, {
-        toggleFloating: () => actions.push('float'),
-        focusFloating: () => actions.push('focus-floating'),
-        focusDirection: d => actions.push('focus:' + d),
-        moveDirection: d => actions.push('move:' + d),
-        resizeDirection: d => actions.push('resize:' + d),
-    });
+    const shortcuts = new ShortcutsManager(
+        {},
+        {
+            toggleFloating: () => actions.push('float'),
+            focusFloating: () => actions.push('focus-floating'),
+            focusDirection: (d) => actions.push('focus:' + d),
+            moveDirection: (d) => actions.push('move:' + d),
+            resizeDirection: (d) => actions.push('resize:' + d),
+        },
+    );
     shortcuts.enable();
-    return {shortcuts, bindings, wm, actions, destroyed: () => destroyed,
-        press: name => bindings.get(name)()};
+    return {
+        shortcuts,
+        bindings,
+        wm,
+        actions,
+        destroyed: () => destroyed,
+        press: (name) => bindings.get(name)(),
+    };
 }
 
 test('modes route modified arrows, preserve focus arrows, and grab Escape only in Resize', async () => {

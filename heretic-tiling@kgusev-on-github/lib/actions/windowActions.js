@@ -11,8 +11,8 @@
  */
 
 import Meta from 'gi://Meta';
-import { Logger } from '../logger.js';
-import { PLACE_PRESETS } from '../rules/schema.js';
+import {Logger} from '../logger.js';
+import {PLACE_PRESETS} from '../rules/schema.js';
 
 const _log = new Logger('WindowActions');
 
@@ -42,8 +42,7 @@ export function actionMoveToWorkspace(window, targetWsIndex, activeWsIndex = -1)
         // away when a background app opens a window on a different workspace.
         if (activeWsIndex >= 0 && targetWsIndex !== activeWsIndex) {
             const activeWorkspace = wsManager.get_workspace_by_index(activeWsIndex);
-            if (activeWorkspace)
-                activeWorkspace.activate(global.get_current_time());
+            if (activeWorkspace) activeWorkspace.activate(global.get_current_time());
         }
     } catch (e) {
         _log.warn(`actionMoveToWorkspace: ${e.message}`);
@@ -58,13 +57,13 @@ export function actionMoveToWorkspace(window, targetWsIndex, activeWsIndex = -1)
  */
 export function actionMoveToMonitor(window, target) {
     try {
-        const monitorIndex = target === 'primary'
-            ? global.display.get_primary_monitor()
-            : target;
+        const monitorIndex = target === 'primary' ? global.display.get_primary_monitor() : target;
 
         const nMonitors = global.display.get_n_monitors();
         if (monitorIndex < 0 || monitorIndex >= nMonitors) {
-            _log.warn(`actionMoveToMonitor: index ${monitorIndex} out of range (${nMonitors} monitors)`);
+            _log.warn(
+                `actionMoveToMonitor: index ${monitorIndex} out of range (${nMonitors} monitors)`,
+            );
             return;
         }
 
@@ -141,8 +140,7 @@ export function actionPlace(window, descriptor, sources, shouldApply = () => tru
         }
 
         // Unmaximize first so move_resize_frame takes effect.
-        if (window.get_maximized())
-            window.unmaximize(Meta.MaximizeFlags.BOTH);
+        if (window.get_maximized()) window.unmaximize(Meta.MaximizeFlags.BOTH);
 
         // Wait one idle tick so Mutter processes the unmaximize before resize.
         // The source is tracked so it is cancelled on extension disable.
@@ -152,15 +150,15 @@ export function actionPlace(window, descriptor, sources, shouldApply = () => tru
                 const monitorIndex = window.get_monitor();
                 const area = window.get_work_area_for_monitor(monitorIndex);
 
-                const x      = Math.round(area.x + frac.x      * area.width);
-                const y      = Math.round(area.y + frac.y      * area.height);
-                const width  = Math.round(frac.width  * area.width);
+                const x = Math.round(area.x + frac.x * area.width);
+                const y = Math.round(area.y + frac.y * area.height);
+                const width = Math.round(frac.width * area.width);
                 const height = Math.round(frac.height * area.height);
 
                 window.move_resize_frame(false, x, y, width, height);
                 _log.debug(
                     `actionPlace: "${window.get_title()}" → ` +
-                    `[${x},${y} ${width}×${height}] on monitor ${monitorIndex}`
+                        `[${x},${y} ${width}×${height}] on monitor ${monitorIndex}`,
                 );
             } catch (e) {
                 _log.warn(`actionPlace (idle): ${e.message}`);
@@ -182,10 +180,8 @@ export function actionPlace(window, descriptor, sources, shouldApply = () => tru
 export function actionFocus(window) {
     try {
         const ws = window.get_workspace();
-        if (ws)
-            ws.activate_with_focus(window, global.get_current_time());
-        else
-            window.activate(global.get_current_time());
+        if (ws) ws.activate_with_focus(window, global.get_current_time());
+        else window.activate(global.get_current_time());
         _log.debug(`actionFocus: "${window.get_title()}"`);
     } catch (e) {
         _log.warn(`actionFocus: ${e.message}`);
@@ -223,11 +219,13 @@ export function actionNoFocus(window, sources) {
             // Most-recently-used other window on the active workspace.
             const candidates = activeWs
                 .list_windows()
-                .filter(win =>
-                    win !== window &&
-                    win.window_type === Meta.WindowType.NORMAL &&
-                    !win.minimized &&
-                    !win.is_on_all_workspaces())
+                .filter(
+                    (win) =>
+                        win !== window &&
+                        win.window_type === Meta.WindowType.NORMAL &&
+                        !win.minimized &&
+                        !win.is_on_all_workspaces(),
+                )
                 .sort((a, b) => b.get_user_time() - a.get_user_time());
 
             if (candidates.length === 0) {

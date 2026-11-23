@@ -5,8 +5,10 @@ import sys
 
 sys.dont_write_bytecode = True
 
-spec = importlib.util.spec_from_file_location('window_click', Path(__file__).resolve().parents[1] /
-    'heretic-tiling@kgusev-on-github/helpers/window-click.py')
+spec = importlib.util.spec_from_file_location(
+    'window_click',
+    Path(__file__).resolve().parents[1] / 'heretic-tiling@kgusev-on-github/helpers/window-click.py',
+)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
@@ -41,9 +43,14 @@ class Display:
         self.clicks.append(window)
 
 
-JOB = {'workspace': 6, 'match': {'wm_class': 'example', 'wm_title': 'Floating panel'},
-       'click': {'x': 260, 'y': 138, 'width': 280, 'height': 158},
-       'delay_ms': 200, 'attempts': 5, 'interval_ms': 250}
+JOB = {
+    'workspace': 6,
+    'match': {'wm_class': 'example', 'wm_title': 'Floating panel'},
+    'click': {'x': 260, 'y': 138, 'width': 280, 'height': 158},
+    'delay_ms': 200,
+    'attempts': 5,
+    'interval_ms': 250,
+}
 
 
 class WindowClickTests(unittest.TestCase):
@@ -87,8 +94,9 @@ class WindowClickTests(unittest.TestCase):
         display.desktop = [2]
         display.dimensions = (100, 70)
         click = {'x': 12, 'y': 25, 'width': 100, 'height': 70, 'button': 3}
-        module.run_action(display, {**JOB, 'workspace': 3, 'click': click,
-                                   'attempts': 1}, lambda _: None)
+        module.run_action(
+            display, {**JOB, 'workspace': 3, 'click': click, 'attempts': 1}, lambda _: None
+        )
         self.assertEqual(display.clicks, [3])
         self.assertEqual(display.last_action, click)
 
@@ -135,7 +143,7 @@ class WindowClickTests(unittest.TestCase):
 
     def test_match_case_insensitive_identity(self):
         display = Display()
-        module.run_action(display, {**JOB, "attempts": 1}, lambda _: None)
+        module.run_action(display, {**JOB, 'attempts': 1}, lambda _: None)
         self.assertEqual(display.clicks, [3])
 
     def test_ignore_other_workspace_or_changed_workspace(self):
@@ -144,7 +152,7 @@ class WindowClickTests(unittest.TestCase):
             display.switch_on_size = switched
             if not switched:
                 display.desktop = [1]
-            module.run_action(display, {**JOB, "attempts": 1}, lambda _: None)
+            module.run_action(display, {**JOB, 'attempts': 1}, lambda _: None)
             self.assertEqual(display.clicks, [])
 
     def test_ignore_other_windows_unknown_sizes_and_missing_properties(self):
@@ -158,7 +166,7 @@ class WindowClickTests(unittest.TestCase):
                 display.dimensions = (400, 300)
             else:
                 display.props.clear()
-            module.run_action(display, {**JOB, "attempts": 1}, lambda _: None)
+            module.run_action(display, {**JOB, 'attempts': 1}, lambda _: None)
             self.assertEqual(display.clicks, [])
 
 

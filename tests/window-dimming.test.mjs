@@ -4,41 +4,72 @@ import {loader, Emitter} from './modules.mjs';
 
 async function fixture() {
     const display = Object.assign(new Emitter(), {focus_window: null});
-    const wm = new Emitter(), overview = new Emitter(), actors = [];
+    const wm = new Emitter(),
+        overview = new Emitter(),
+        actors = [];
     const values = {'dim-unfocused-windows': true, 'unfocused-window-dim-percent': 20};
     const settings = Object.assign(new Emitter(), {
-        get_boolean: key => values[key], get_int: key => values[key],
+        get_boolean: (key) => values[key],
+        get_int: (key) => values[key],
     });
     const actor = (type = 0) => {
         const a = Object.assign(new Emitter(), {
-            meta_window: {get_window_type: () => type}, opacity: 180, effects: new Set(),
+            meta_window: {get_window_type: () => type},
+            opacity: 180,
+            effects: new Set(),
             add_effect_with_name: (_name, effect) => a.effects.add(effect),
-            remove_effect: effect => a.effects.delete(effect),
+            remove_effect: (effect) => a.effects.delete(effect),
         });
         actors.push(a);
         return a;
     };
-    const first = actor(), second = actor(), popup = actor(9);
+    const first = actor(),
+        second = actor(),
+        popup = actor(9);
     display.focus_window = first.meta_window;
-    const load = loader({
-        'gi://Clutter': {default: {BrightnessContrastEffect: class {
-            set_brightness(value) { this.brightness = value; }
-        }}},
-        'gi://Meta': {default: {WindowType: {NORMAL: 0, DIALOG: 1, MODAL_DIALOG: 2, UTILITY: 3}}},
-        'resource:///org/gnome/shell/ui/main.js': {overview},
-    }, {global: {display, window_manager: wm, get_window_actors: () => actors}});
+    const load = loader(
+        {
+            'gi://Clutter': {
+                default: {
+                    BrightnessContrastEffect: class {
+                        set_brightness(value) {
+                            this.brightness = value;
+                        }
+                    },
+                },
+            },
+            'gi://Meta': {
+                default: {WindowType: {NORMAL: 0, DIALOG: 1, MODAL_DIALOG: 2, UTILITY: 3}},
+            },
+            'resource:///org/gnome/shell/ui/main.js': {overview},
+        },
+        {global: {display, window_manager: wm, get_window_actors: () => actors}},
+    );
     const {WindowDimming} = await load('lib/windowDimming.js');
-    const rules = new Map(), reloadListeners = new Set();
+    const rules = new Map(),
+        reloadListeners = new Set();
     const ruleEngine = {
-        resolveActions: window => ({actions: rules.get(window) ?? {}}),
-        onReload: callback => {
+        resolveActions: (window) => ({actions: rules.get(window) ?? {}}),
+        onReload: (callback) => {
             reloadListeners.add(callback);
             return () => reloadListeners.delete(callback);
         },
     };
-    return {manager: new WindowDimming(settings, ruleEngine), rules, reloadListeners,
-        display, wm, overview, settings, values,
-        actors, actor, first, second, popup};
+    return {
+        manager: new WindowDimming(settings, ruleEngine),
+        rules,
+        reloadListeners,
+        display,
+        wm,
+        overview,
+        settings,
+        values,
+        actors,
+        actor,
+        first,
+        second,
+        popup,
+    };
 }
 
 test('focus and live settings update brightness without changing opacity or other effects', async () => {

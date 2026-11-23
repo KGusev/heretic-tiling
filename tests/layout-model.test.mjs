@@ -1,22 +1,38 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {loader} from './modules.mjs';
-const {validateLayouts, LayoutTree, slots, geometry, resizeWeights, resizeWindow} = await loader()('lib/layouts/model.js');
+const {validateLayouts, LayoutTree, slots, geometry, resizeWeights, resizeWindow} =
+    await loader()('lib/layouts/model.js');
 const slot = (name, extra = {}) => ({type: 'placeholder', name, ...extra});
 const box = (children, type = 'hbox') => ({type, children});
-const plain = x => JSON.parse(JSON.stringify(x));
+const plain = (x) => JSON.parse(JSON.stringify(x));
 
 test('schema accepts placeholder roots and nested containers; rejects invalid and duplicate slots', () => {
-    assert.equal(validateLayouts({main: slot('main'), code: box([slot('editor'), box([slot('term')], 'vbox')])}).length, 0);
-    for (const layouts of [null, [], {hbox: slot('a')}, {p: box([slot('a'), slot('a')])},
-        {p: slot('a', {weight: Infinity})}, {p: slot('', {skipIfEmpty: 1})},
-        {p: box([slot('a', {x: .8, y: 0, width: .4, height: 1})], 'constraint')}])
+    assert.equal(
+        validateLayouts({
+            main: slot('main'),
+            code: box([slot('editor'), box([slot('term')], 'vbox')]),
+        }).length,
+        0,
+    );
+    for (const layouts of [
+        null,
+        [],
+        {hbox: slot('a')},
+        {p: box([slot('a'), slot('a')])},
+        {p: slot('a', {weight: Infinity})},
+        {p: slot('', {skipIfEmpty: 1})},
+        {p: box([slot('a', {x: 0.8, y: 0, width: 0.4, height: 1})], 'constraint')},
+    ])
         assert.ok(validateLayouts(layouts).length);
 });
 
 test('nested geometry rounds to parent extent and collapses empty subtrees', () => {
-    const root = box([slot('a', {weight: 2}), box([slot('b'), slot('c')], 'vbox'),
-        box([slot('empty', {skipIfEmpty: true})])]);
+    const root = box([
+        slot('a', {weight: 2}),
+        box([slot('b'), slot('c')], 'vbox'),
+        box([slot('empty', {skipIfEmpty: true})]),
+    ]);
     const {leaves, splitters} = geometry(root, {x: 20, y: 30, width: 1001, height: 601});
     assert.equal(leaves.length, 3);
     assert.equal(leaves[0].rect.width, 667);
@@ -27,8 +43,13 @@ test('nested geometry rounds to parent extent and collapses empty subtrees', () 
 
 test('constraint geometry permits overlap and root placeholder fills work area', () => {
     const area = {x: 200, y: 40, width: 801, height: 601};
-    const root = box([slot('a', {x: .25, y: 0, width: .5, height: 1}),
-        slot('b', {x: .5, y: .5, width: .5, height: .5})], 'constraint');
+    const root = box(
+        [
+            slot('a', {x: 0.25, y: 0, width: 0.5, height: 1}),
+            slot('b', {x: 0.5, y: 0.5, width: 0.5, height: 0.5}),
+        ],
+        'constraint',
+    );
     const g = geometry(root, area);
     assert.equal(g.splitters.length, 0);
     assert.equal(g.leaves[1].rect.x + g.leaves[1].rect.width, 1001);
@@ -52,8 +73,11 @@ test('assignment handles displacement, idempotence, overflow and deterministic r
 
 test('dynamic trees preserve order and weights while adding and removing windows', () => {
     const tree = new LayoutTree('hbox');
-    const a = {}, b = {}, c = {};
-    tree.reconcile([a, b]); tree.root.children[0].weight = 3;
+    const a = {},
+        b = {},
+        c = {};
+    tree.reconcile([a, b]);
+    tree.root.children[0].weight = 3;
     tree.reconcile([b, a, c]);
     assert.equal(tree.root.children[0].window, a);
     assert.equal(tree.root.children[0].weight, 3);
@@ -65,17 +89,29 @@ test('normal drag affects adjacent pair; shift preserves proportions on each sid
     const normal = resizeWeights([1, 2, 3, 4], 1, 50, 1000, false);
     assert.deepEqual(plain(normal), [1, 2.5, 2.5, 4]);
     const shift = resizeWeights([1, 2, 3, 4], 1, 100, 1000, true);
-    assert.ok(Math.abs(shift[0] / shift[1] - .5) < 1e-10);
-    assert.ok(Math.abs(shift[2] / shift[3] - .75) < 1e-10);
+    assert.ok(Math.abs(shift[0] / shift[1] - 0.5) < 1e-10);
+    assert.ok(Math.abs(shift[2] / shift[3] - 0.75) < 1e-10);
     assert.ok(Math.abs(shift.reduce((a, b) => a + b) - 10) < 1e-10);
-    assert.deepEqual(plain(resizeWeights([1, 1], 0, 500, 200, false, [50, 50])), [1.5, .5]);
+    assert.deepEqual(plain(resizeWeights([1, 1], 0, 500, 200, false, [50, 50])), [1.5, 0.5]);
 });
 
 test('shared rule validator validates layouts and placeholder actions', async () => {
     const {validateRules} = await loader()('lib/rules/validator.js');
-    assert.equal(validateRules(JSON.stringify({rules: [{actions: {layout_placeholder: 'editor'}}], layouts: {main: slot('editor')}})).errors.length, 0);
-    assert.ok(validateRules(JSON.stringify({rules: [{actions: {layout_placeholder: ''}}]})).errors.length);
-    assert.ok(validateRules(JSON.stringify({rules: [], layouts: {p: {type: 'bad'}}})).errors.length);
+    assert.equal(
+        validateRules(
+            JSON.stringify({
+                rules: [{actions: {layout_placeholder: 'editor'}}],
+                layouts: {main: slot('editor')},
+            }),
+        ).errors.length,
+        0,
+    );
+    assert.ok(
+        validateRules(JSON.stringify({rules: [{actions: {layout_placeholder: ''}}]})).errors.length,
+    );
+    assert.ok(
+        validateRules(JSON.stringify({rules: [], layouts: {p: {type: 'bad'}}})).errors.length,
+    );
 });
 
 test('large finite weights do not overflow geometry calculations', () => {
@@ -87,21 +123,44 @@ test('large finite weights do not overflow geometry calculations', () => {
 
 test('native rectangle getters retain both dimensions in all layout nodes', () => {
     // GJS boxed Mtk.Rectangle fields are not enumerable own properties.
-    const area = Object.create({get x() { return 100; }, get y() { return 30; },
-        get width() { return 1200; }, get height() { return 770; }});
+    const area = Object.create({
+        get x() {
+            return 100;
+        },
+        get y() {
+            return 30;
+        },
+        get width() {
+            return 1200;
+        },
+        get height() {
+            return 770;
+        },
+    });
     assert.deepEqual({...area}, {});
     for (const type of ['hbox', 'vbox']) {
         const result = geometry(box([slot('a'), slot('b'), slot('c')], type), area);
         for (const {rect} of [...result.leaves, ...result.splitters]) {
-            for (const field of ['x', 'y', 'width', 'height']) assert.ok(Number.isFinite(rect[field]), `${type}.${field}`);
+            for (const field of ['x', 'y', 'width', 'height'])
+                assert.ok(Number.isFinite(rect[field]), `${type}.${field}`);
             assert.ok(rect.width > 0 && rect.height > 0);
         }
         for (const {rect} of result.leaves) {
-            if (type === 'hbox') { assert.equal(rect.y, 30); assert.equal(rect.height, 770); }
-            else { assert.equal(rect.x, 100); assert.equal(rect.width, 1200); }
+            if (type === 'hbox') {
+                assert.equal(rect.y, 30);
+                assert.equal(rect.height, 770);
+            } else {
+                assert.equal(rect.x, 100);
+                assert.equal(rect.width, 1200);
+            }
         }
     }
-    assert.deepEqual(plain(geometry(slot('root'), area).leaves[0].rect), {x:100, y:30, width:1200, height:770});
+    assert.deepEqual(plain(geometry(slot('root'), area).leaves[0].rect), {
+        x: 100,
+        y: 30,
+        width: 1200,
+        height: 770,
+    });
 });
 
 test('gapless boxes share edges and retain centered six-pixel drag targets', () => {
@@ -121,9 +180,9 @@ test('gapless boxes share edges and retain centered six-pixel drag targets', () 
 
 test('keyboard resize grows/shrinks edge tiles and clamps repeated keys', () => {
     const windows = [{}, {}, {}];
-    const root = box(windows.map(window => slot('', {window})));
+    const root = box(windows.map((window) => slot('', {window})));
     const area = {x: 0, y: 0, width: 900, height: 600};
-    const widths = () => geometry(root, area).leaves.map(l => l.rect.width);
+    const widths = () => geometry(root, area).leaves.map((l) => l.rect.width);
     assert.equal(resizeWindow(root, area, windows[0], 'right'), true);
     assert.deepEqual(plain(widths()), [315, 285, 300]);
     resizeWindow(root, area, windows[0], 'left');
@@ -135,7 +194,9 @@ test('keyboard resize grows/shrinks edge tiles and clamps repeated keys', () => 
     assert.equal(resizeWindow(root, area, windows[0], 'up'), false);
 });
 test('keyboard resize follows nested axes and preserves sibling groups', () => {
-    const a = {}, b = {}, c = {};
+    const a = {},
+        b = {},
+        c = {};
     const nested = box([slot('', {window: a}), slot('', {window: b})], 'vbox');
     const root = box([nested, slot('', {window: c})]);
     const area = {x: 0, y: 0, width: 1000, height: 600};
@@ -156,13 +217,14 @@ test('a resized box resets its lone survivor before a new window joins', () => {
         for (const survivor of [0, 1]) {
             for (const batched of [false, true]) {
                 const tree = new LayoutTree(preset);
-                const windows = [{}, {}], replacement = {};
+                const windows = [{}, {}],
+                    replacement = {};
                 tree.reconcile(windows);
                 tree.root.children[0].weight = 1.4;
                 tree.root.children[1].weight = 0.6;
                 if (!batched) tree.reconcile([windows[survivor]]);
                 tree.reconcile([windows[survivor], replacement]);
-                assert.deepEqual(plain(tree.root.children.map(c => c.weight)), [1, 1]);
+                assert.deepEqual(plain(tree.root.children.map((c) => c.weight)), [1, 1]);
                 const leaves = geometry(tree.root, {x: 0, y: 0, width: 1000, height: 800}).leaves;
                 const size = preset === 'hbox' ? 'width' : 'height';
                 assert.equal(leaves[0].rect[size], leaves[1].rect[size]);
@@ -173,30 +235,53 @@ test('a resized box resets its lone survivor before a new window joins', () => {
 
 test('workspace layout mapping rejects invalid indices and missing presets', async () => {
     const {validateWorkspaceLayouts} = await loader()('lib/layouts/model.js');
-    assert.equal(validateWorkspaceLayouts({'1': 'main', '12': 'none'}, {main: slot('browser')}).length, 0);
-    for (const mapping of [null, [], {'0': 'hbox'}, {'01': 'hbox'}, {'1.5': 'hbox'}, {'1': 'missing'}, {'1': 1}])
+    assert.equal(
+        validateWorkspaceLayouts({1: 'main', 12: 'none'}, {main: slot('browser')}).length,
+        0,
+    );
+    for (const mapping of [
+        null,
+        [],
+        {0: 'hbox'},
+        {'01': 'hbox'},
+        {1.5: 'hbox'},
+        {1: 'missing'},
+        {1: 1},
+    ])
         assert.ok(validateWorkspaceLayouts(mapping).length);
 });
 
 test('dynamic secondary column keeps browser 70%, preserves resize, and resets after a lone survivor', () => {
-    const definition = box([slot('browser', {weight: 70, skipIfEmpty: true}),
-        {type: 'vbox', weight: 30, dynamic: true, children: []}]);
+    const definition = box([
+        slot('browser', {weight: 70, skipIfEmpty: true}),
+        {type: 'vbox', weight: 30, dynamic: true, children: []},
+    ]);
     assert.equal(validateLayouts({browser: definition}).length, 0);
-    for (const bad of [slot('bad', {dynamic: true}), {...definition, dynamic: true},
-        box([{type: 'vbox', dynamic: true, children: []}, {type: 'hbox', dynamic: true, children: []}])])
+    for (const bad of [
+        slot('bad', {dynamic: true}),
+        {...definition, dynamic: true},
+        box([
+            {type: 'vbox', dynamic: true, children: []},
+            {type: 'hbox', dynamic: true, children: []},
+        ]),
+    ])
         assert.ok(validateLayouts({bad}).length);
     for (const browserFirst of [true, false]) {
         const tree = new LayoutTree('browser', definition);
-        const browser = {}, a = {}, b = {}, c = {};
+        const browser = {},
+            a = {},
+            b = {},
+            c = {};
         tree.reconcile(browserFirst ? [browser, a] : [a, browser]);
         tree.assign(browser, 'browser');
         tree.reconcile([browser, a, b]);
         const area = {x: 0, y: 0, width: 1000, height: 800};
         let leaves = geometry(tree.root, area).leaves;
-        assert.equal(leaves.find(l => l.node.window === browser).rect.width, 700);
+        assert.equal(leaves.find((l) => l.node.window === browser).rect.width, 700);
         for (const window of [a, b]) {
-            const rect = leaves.find(l => l.node.window === window).rect;
-            assert.equal(rect.width, 300); assert.equal(rect.height, 400);
+            const rect = leaves.find((l) => l.node.window === window).rect;
+            assert.equal(rect.width, 300);
+            assert.equal(rect.height, 400);
         }
         resizeWindow(tree.root, area, browser, 'right', 10);
         tree.reconcile([browser, a, b, c]);
@@ -205,10 +290,11 @@ test('dynamic secondary column keeps browser 70%, preserves resize, and resets a
         const next = {};
         tree.reconcile([browser, next]);
         assert.equal(geometry(tree.root, area).leaves[0].rect.width, 700);
-        assert.equal(slots(tree.root).filter(s => s.window).length, 2);
+        assert.equal(slots(tree.root).filter((s) => s.window).length, 2);
         tree.reconcile([next]);
         const returningBrowser = {};
-        tree.reconcile([next, returningBrowser]); tree.assign(returningBrowser, 'browser');
+        tree.reconcile([next, returningBrowser]);
+        tree.assign(returningBrowser, 'browser');
         assert.equal(geometry(tree.root, area).leaves[0].rect.width, 700);
         assert.equal(tree.has(next), true);
     }
@@ -217,16 +303,29 @@ test('dynamic secondary column keeps browser 70%, preserves resize, and resets a
 test('keyboard resize snaps off-grid shares in both directions independently of resolution', () => {
     for (const width of [1000, 1920, 3840]) {
         for (const [direction, step, expected] of [
-            ['right', 5, 50], ['left', 5, 45], ['right', 10, 50], ['left', 10, 40],
+            ['right', 5, 50],
+            ['left', 5, 45],
+            ['right', 10, 50],
+            ['left', 10, 40],
         ]) {
-            const a = {}, b = {};
-            const root = box([slot('', {window: a, weight: 47}), slot('', {window: b, weight: 53})]);
+            const a = {},
+                b = {};
+            const root = box([
+                slot('', {window: a, weight: 47}),
+                slot('', {window: b, weight: 53}),
+            ]);
             const area = {x: 0, y: 0, width, height: 800};
             resizeWindow(root, area, a, direction, step);
-            assert.equal(geometry(root, area).leaves[0].rect.width, Math.round(width * expected / 100));
+            assert.equal(
+                geometry(root, area).leaves[0].rect.width,
+                Math.round((width * expected) / 100),
+            );
             resizeWindow(root, area, a, direction, step);
             const next = expected + (direction === 'right' ? step : -step);
-            assert.equal(geometry(root, area).leaves[0].rect.width, Math.round(width * next / 100));
+            assert.equal(
+                geometry(root, area).leaves[0].rect.width,
+                Math.round((width * next) / 100),
+            );
         }
     }
 });

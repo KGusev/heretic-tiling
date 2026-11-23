@@ -62,14 +62,18 @@ export class SourceTracker {
      */
     remove(sid) {
         if (this._sources.delete(sid)) {
-            try { GLib.source_remove(sid); } catch (_) {}
+            try {
+                GLib.source_remove(sid);
+            } catch (_) {}
         }
     }
 
     /** Cancel all still-pending sources. */
     clearAll() {
         for (const sid of this._sources) {
-            try { GLib.source_remove(sid); } catch (_) {}
+            try {
+                GLib.source_remove(sid);
+            } catch (_) {}
         }
         this._sources.clear();
     }

@@ -3,12 +3,25 @@ export function validateWorkspaceActions(actions, opts = {}) {
     if (actions === undefined) return [];
     if (!Array.isArray(actions)) return ['workspace_actions must be an array'];
     const errors = [];
-    const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+    const object = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
     actions.forEach((job, index) => {
-        const fail = message => errors.push(`workspace_actions[${index}]: ${message}`);
-        if (!object(job)) { fail('must be an object'); return; }
+        const fail = (message) => errors.push(`workspace_actions[${index}]: ${message}`);
+        if (!object(job)) {
+            fail('must be an object');
+            return;
+        }
         for (const key of Object.keys(job))
-            if (!['comment', 'workspace', 'match', 'click', 'delay_ms', 'attempts', 'interval_ms'].includes(key))
+            if (
+                ![
+                    'comment',
+                    'workspace',
+                    'match',
+                    'click',
+                    'delay_ms',
+                    'attempts',
+                    'interval_ms',
+                ].includes(key)
+            )
                 fail(`unknown key ${key}`);
         if ('comment' in job && typeof job.comment !== 'string') fail('comment must be a string');
         const integer = (value, min, max, label) => {
@@ -20,15 +33,23 @@ export function validateWorkspaceActions(actions, opts = {}) {
             fail('match must contain at least one window identity field');
         } else {
             for (const [key, value] of Object.entries(job.match)) {
-                if (!['wm_class', 'wm_class_instance', 'wm_title'].includes(key)) fail(`unknown match key ${key}`);
-                if (typeof value !== 'string' || !value.trim()) fail(`match.${key} must be a nonempty exact string`);
+                if (!['wm_class', 'wm_class_instance', 'wm_title'].includes(key))
+                    fail(`unknown match key ${key}`);
+                if (typeof value !== 'string' || !value.trim())
+                    fail(`match.${key} must be a nonempty exact string`);
             }
         }
-        if (!object(job.click)) { fail('click must be an object'); } else {
+        if (!object(job.click)) {
+            fail('click must be an object');
+        } else {
             for (const key of Object.keys(job.click))
-                if (!['anchor', 'x', 'y', 'width', 'height', 'button'].includes(key)) fail(`unknown click key ${key}`);
+                if (!['anchor', 'x', 'y', 'width', 'height', 'button'].includes(key))
+                    fail(`unknown click key ${key}`);
             const anchored = 'anchor' in job.click;
-            if (anchored && !['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(job.click.anchor))
+            if (
+                anchored &&
+                !['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(job.click.anchor)
+            )
                 fail('click.anchor must be top-left, top-right, bottom-left, or bottom-right');
             if (!anchored || 'width' in job.click || 'height' in job.click) {
                 integer(job.click.width, 1, 32767, 'click.width');

@@ -18,8 +18,13 @@ export class WindowInspector {
     }
 
     enable() {
-        Main.wm.addKeybinding(KEY, this._settings, Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-            Shell.ActionMode.NORMAL | Shell.ActionMode.POPUP, () => this.toggle());
+        Main.wm.addKeybinding(
+            KEY,
+            this._settings,
+            Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.POPUP,
+            () => this.toggle(),
+        );
     }
 
     toggle() {
@@ -37,14 +42,18 @@ export class WindowInspector {
                 'Window properties (workspace: 1-based; monitor: 0-based)',
                 JSON.stringify(snapshot.properties, null, 2),
                 '\nMatching rules (evaluation order; stops at stop: true)',
-                snapshot.rules.length ? JSON.stringify(snapshot.rules, null, 2) : 'No matching rules.',
+                snapshot.rules.length
+                    ? JSON.stringify(snapshot.rules, null, 2)
+                    : 'No matching rules.',
                 '\nFinal merged rule actions',
                 JSON.stringify(snapshot.actions, null, 2),
                 `\nManaged by tiling: ${managed ? 'yes' : 'no'}`,
                 managed ? 'Tiling overrides rule place/maximize geometry.' : '',
                 'Preview only: actions are not executed. Non-normal windows require an explicit window_type rule.',
                 'Snapshot taken when Win+I was pressed. Close and reopen to refresh.',
-            ].filter(Boolean).join('\n');
+            ]
+                .filter(Boolean)
+                .join('\n');
         }
         const indicator = new PanelMenu.Button(0.0, 'Window inspector');
         this._indicator = indicator;
@@ -52,13 +61,16 @@ export class WindowInspector {
         const scroll = new St.ScrollView({style: 'max-height: 500px; max-width: 720px;'});
         scroll.set_policy(St.PolicyType.AUTOMATIC, St.PolicyType.AUTOMATIC);
         const content = new St.BoxLayout({vertical: true});
-        content.add_child(new St.Label({text: report, style: 'font-family: monospace; padding: 12px;'}));
+        content.add_child(
+            new St.Label({text: report, style: 'font-family: monospace; padding: 12px;'}),
+        );
         scroll.add_child(content);
         const item = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
         item.add_child(scroll);
         indicator.menu.addMenuItem(item);
         indicator.menu.addAction('Copy report', () =>
-            St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, report));
+            St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, report),
+        );
         indicator.menu.addAction('Close inspector', () => this.toggle());
         Main.panel.addToStatusArea('heretic-window-inspector', indicator);
         indicator.menu.open();

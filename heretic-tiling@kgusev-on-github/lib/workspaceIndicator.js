@@ -16,10 +16,10 @@
  *   ind.destroy();
  */
 
-import St      from 'gi://St';
+import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 
-import * as Main      from 'resource:///org/gnome/shell/ui/main.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 export class WorkspaceIndicator {
@@ -34,16 +34,23 @@ export class WorkspaceIndicator {
      *                                     button moves the focused window to it
      *                                     (default true).
      */
-    constructor(numWorkspaces, log = null, scrollSwitch = true, highlightEmpty = true, middleClickMove = true, layouts = null) {
+    constructor(
+        numWorkspaces,
+        log = null,
+        scrollSwitch = true,
+        highlightEmpty = true,
+        middleClickMove = true,
+        layouts = null,
+    ) {
         this._layouts = layouts;
         this._numWorkspaces = numWorkspaces;
-        this._log           = log;
-        this._scrollSwitch  = scrollSwitch;
+        this._log = log;
+        this._scrollSwitch = scrollSwitch;
         this._highlightEmpty = highlightEmpty;
         this._middleClickMove = middleClickMove;
-        this._buttons       = [];   // St.Button[], indexed by workspace index
-        this._menus         = [];   // PopupMenu.PopupMenu[], indexed by workspace index
-        this._signals       = [];   // { obj, id } pairs to disconnect on destroy
+        this._buttons = []; // St.Button[], indexed by workspace index
+        this._menus = []; // PopupMenu.PopupMenu[], indexed by workspace index
+        this._signals = []; // { obj, id } pairs to disconnect on destroy
         this._windowSignals = new Map(); // Meta.Window → signal-id[]
         this._workspaceSignals = []; // { obj, id } pairs for per-workspace window signals
 
@@ -51,11 +58,11 @@ export class WorkspaceIndicator {
         this._menuManager = new PopupMenu.PopupMenuManager(this);
 
         this._box = new St.BoxLayout({
-            style_class:  'workspace-indicator-box',
-            reactive:     true,
-            can_focus:    false,
-            track_hover:  false,
-            vertical:     false,
+            style_class: 'workspace-indicator-box',
+            reactive: true,
+            can_focus: false,
+            track_hover: false,
+            vertical: false,
         });
 
         // Scroll over the indicator switches workspaces (up = previous, down = next)
@@ -63,8 +70,8 @@ export class WorkspaceIndicator {
             if (!this._scrollSwitch) return Clutter.EVENT_PROPAGATE;
 
             const wm = global.workspace_manager;
-            const n  = wm.get_n_workspaces();
-            let idx  = wm.get_active_workspace_index();
+            const n = wm.get_n_workspaces();
+            let idx = wm.get_active_workspace_index();
 
             switch (event.get_scroll_direction()) {
                 case Clutter.ScrollDirection.UP:
@@ -91,30 +98,19 @@ export class WorkspaceIndicator {
         this._connectWorkspaceSignals();
 
         // React to the user switching workspaces
-        this._connectSignal(
-            global.workspace_manager,
-            'workspace-switched',
-            () => this._refresh(),
-        );
+        this._connectSignal(global.workspace_manager, 'workspace-switched', () => this._refresh());
 
         // Rebuild if the number of workspaces changes at runtime
-        this._connectSignal(
-            global.workspace_manager,
-            'notify::n-workspaces',
-            () => this._rebuild(),
+        this._connectSignal(global.workspace_manager, 'notify::n-workspaces', () =>
+            this._rebuild(),
         );
 
         // Track urgent hints on all existing windows
         const existingWindows = global.display.list_all_windows();
-        for (const win of existingWindows)
-            this._trackWindow(win);
+        for (const win of existingWindows) this._trackWindow(win);
 
         // Track urgent hints on windows created after startup
-        this._connectSignal(
-            global.display,
-            'window-created',
-            (_, win) => this._trackWindow(win),
-        );
+        this._connectSignal(global.display, 'window-created', (_, win) => this._trackWindow(win));
     }
 
     // -----------------------------------------------------------------------
@@ -148,15 +144,19 @@ export class WorkspaceIndicator {
 
     /** Disconnect all signals and destroy the widget tree. */
     destroy() {
-        for (const { obj, id } of this._signals) {
-            try { obj.disconnect(id); } catch (_) {}
+        for (const {obj, id} of this._signals) {
+            try {
+                obj.disconnect(id);
+            } catch (_) {}
         }
         this._signals = [];
         this._buttons = [];
 
         // Destroy all per-button popup menus
         for (const menu of this._menus) {
-            try { menu.destroy(); } catch (_) {}
+            try {
+                menu.destroy();
+            } catch (_) {}
         }
         this._menus = [];
         this._menuManager = null;
@@ -164,14 +164,18 @@ export class WorkspaceIndicator {
         // Disconnect per-window urgent signals
         for (const [win, ids] of this._windowSignals) {
             for (const id of ids) {
-                try { win.disconnect(id); } catch (_) {}
+                try {
+                    win.disconnect(id);
+                } catch (_) {}
             }
         }
         this._windowSignals.clear();
 
         // Disconnect per-workspace window signals
-        for (const { obj, id } of this._workspaceSignals) {
-            try { obj.disconnect(id); } catch (_) {}
+        for (const {obj, id} of this._workspaceSignals) {
+            try {
+                obj.disconnect(id);
+            } catch (_) {}
         }
         this._workspaceSignals = [];
 
@@ -196,11 +200,11 @@ export class WorkspaceIndicator {
 
         for (let i = 0; i < count; i++) {
             const label = String(i + 1);
-            const btn   = new St.Button({
+            const btn = new St.Button({
                 label,
                 style_class: 'workspace-button',
-                can_focus:   true,
-                reactive:    true,
+                can_focus: true,
+                reactive: true,
                 track_hover: true,
             });
 
@@ -266,7 +270,9 @@ export class WorkspaceIndicator {
 
         // Destroy the old per-button menus
         for (const menu of this._menus) {
-            try { menu.destroy(); } catch (_) {}
+            try {
+                menu.destroy();
+            } catch (_) {}
         }
         this._menus = [];
 
@@ -284,24 +290,26 @@ export class WorkspaceIndicator {
      */
     _connectWorkspaceSignals() {
         // Disconnect any previously connected workspace signals
-        for (const { obj, id } of this._workspaceSignals) {
-            try { obj.disconnect(id); } catch (_) {}
+        for (const {obj, id} of this._workspaceSignals) {
+            try {
+                obj.disconnect(id);
+            } catch (_) {}
         }
         this._workspaceSignals = [];
 
         const wm = global.workspace_manager;
-        const n  = wm.get_n_workspaces();
+        const n = wm.get_n_workspaces();
         for (let i = 0; i < n; i++) {
             const ws = wm.get_workspace_by_index(i);
             if (!ws) continue;
 
             this._workspaceSignals.push({
                 obj: ws,
-                id:  ws.connect('window-added',   () => this._refreshWindows()),
+                id: ws.connect('window-added', () => this._refreshWindows()),
             });
             this._workspaceSignals.push({
                 obj: ws,
-                id:  ws.connect('window-removed', () => this._refreshWindows()),
+                id: ws.connect('window-removed', () => this._refreshWindows()),
             });
         }
     }
@@ -322,8 +330,7 @@ export class WorkspaceIndicator {
         // button-press handler). On close, detach it again so the invisible
         // boxpointer does not draw over the workspace indicator.
         menu.connect('open-state-changed', (m, isOpen) => {
-            if (!isOpen && menu.actor.get_parent())
-                Main.uiGroup.remove_child(menu.actor);
+            if (!isOpen && menu.actor.get_parent()) Main.uiGroup.remove_child(menu.actor);
         });
 
         this._menuManager.addMenu(menu);
@@ -351,8 +358,11 @@ export class WorkspaceIndicator {
             const submenu = new PopupMenu.PopupSubMenuMenuItem('Layout');
             const labels = {none: 'None', hbox: 'Horizontal', vbox: 'Vertical'};
             for (const preset of this._layouts.presets) {
-                const item = submenu.menu.addAction(labels[preset] ?? preset, () => this._layouts.applyPreset(ws, preset));
-                if (this._layouts.getActivePreset(ws) === preset) item.setOrnament(PopupMenu.Ornament.CHECK);
+                const item = submenu.menu.addAction(labels[preset] ?? preset, () =>
+                    this._layouts.applyPreset(ws, preset),
+                );
+                if (this._layouts.getActivePreset(ws) === preset)
+                    item.setOrnament(PopupMenu.Ornament.CHECK);
             }
             submenu.menu.addAction('Reset layout', () => this._layouts.resetLayout(ws));
             menu.addMenuItem(submenu);
@@ -363,11 +373,11 @@ export class WorkspaceIndicator {
         // (non-sticky) window. Sticky windows are excluded because they appear
         // on every workspace, so they neither occupy the target nor can be moved.
         const activeIdx = wm.get_active_workspace_index();
-        const activeWs  = wm.get_workspace_by_index(activeIdx);
+        const activeWs = wm.get_workspace_by_index(activeIdx);
 
-        const targetEmpty = !ws.list_windows().some(win => !win.is_on_all_workspaces());
+        const targetEmpty = !ws.list_windows().some((win) => !win.is_on_all_workspaces());
         const currentHasWindows = activeWs
-            ? activeWs.list_windows().some(win => !win.is_on_all_workspaces())
+            ? activeWs.list_windows().some((win) => !win.is_on_all_workspaces())
             : false;
 
         if (targetEmpty && currentHasWindows && idx !== activeIdx) {
@@ -376,16 +386,17 @@ export class WorkspaceIndicator {
                 let moved = 0;
                 if (this._layouts) {
                     moved = this._layouts.moveAllWindows(activeWs, ws);
-                } else for (const win of activeWs.list_windows()) {
-                    if (win.is_on_all_workspaces()) continue; // sticky — leave in place
-                    win.change_workspace(ws);
-                    moved++;
-                }
+                } else
+                    for (const win of activeWs.list_windows()) {
+                        if (win.is_on_all_workspaces()) continue; // sticky — leave in place
+                        win.change_workspace(ws);
+                        moved++;
+                    }
                 // Switch to the target workspace so the user lands where the
                 // windows were just moved.
                 ws.activate(global.get_current_time());
                 this._log?.debug(
-                    `moved ${moved} window(s) from workspace ${activeIdx + 1} → ${idx + 1}`
+                    `moved ${moved} window(s) from workspace ${activeIdx + 1} → ${idx + 1}`,
                 );
             });
         }
@@ -416,9 +427,7 @@ export class WorkspaceIndicator {
 
         win.change_workspace(target);
         target.activate(global.get_current_time());
-        this._log?.debug(
-            `middle-click: moved "${win.get_title()}" → workspace ${idx + 1}`
-        );
+        this._log?.debug(`middle-click: moved "${win.get_title()}" → workspace ${idx + 1}`);
     }
 
     /**
@@ -448,7 +457,7 @@ export class WorkspaceIndicator {
         const wm = global.workspace_manager;
 
         for (let i = 0; i < this._buttons.length; i++) {
-            const ws  = wm.get_workspace_by_index(i);
+            const ws = wm.get_workspace_by_index(i);
             let hasUrgent = false;
 
             if (ws) {
@@ -495,7 +504,7 @@ export class WorkspaceIndicator {
 
             const ws = wm.get_workspace_by_index(i);
             const hasWindows = ws
-                ? ws.list_windows().some(win => !win.is_on_all_workspaces())
+                ? ws.list_windows().some((win) => !win.is_on_all_workspaces())
                 : false;
 
             if (!hasWindows) {
@@ -517,9 +526,9 @@ export class WorkspaceIndicator {
         if (this._windowSignals.has(win)) return;
 
         const ids = [
-            win.connect('notify::urgent',            () => this._refreshUrgent()),
+            win.connect('notify::urgent', () => this._refreshUrgent()),
             win.connect('notify::demands-attention', () => this._refreshUrgent()),
-            win.connect('unmanaged',                 () => this._untrackWindow(win)),
+            win.connect('unmanaged', () => this._untrackWindow(win)),
         ];
         this._windowSignals.set(win, ids);
         this._refreshUrgent();
@@ -537,7 +546,9 @@ export class WorkspaceIndicator {
         if (!ids) return;
 
         for (const id of ids) {
-            try { win.disconnect(id); } catch (_) {}
+            try {
+                win.disconnect(id);
+            } catch (_) {}
         }
         this._windowSignals.delete(win);
         this._refreshUrgent();
@@ -553,7 +564,7 @@ export class WorkspaceIndicator {
      */
     _connectSignal(obj, signal, fn) {
         const id = obj.connect(signal, fn);
-        this._signals.push({ obj, id });
+        this._signals.push({obj, id});
         return id;
     }
 }
