@@ -15,7 +15,7 @@ export class WorkspaceActions {
 
     onWorkspaceChanged() {
         this.cancel();
-        if (Meta.is_wayland_compositor()) return;
+        if (Meta.is_wayland_compositor?.() ?? true) return;
         const workspace = global.workspace_manager.get_active_workspace_index() + 1;
         for (const job of this._engine.workspaceActions) {
             if (job.workspace !== workspace) continue;

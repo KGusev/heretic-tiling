@@ -3,8 +3,9 @@ import Meta from 'gi://Meta';
 /** Suppress compositor window shadows while enabled; restore previous parameters. */
 export class WindowShadows {
     constructor() {
-        this._factory = Meta.ShadowFactory.get_default();
         this._saved = [];
+        this._factory = Meta.ShadowFactory?.get_default();
+        if (!this._factory || !Meta.ShadowParams) return;
         for (const name of ['normal', 'dialog', 'modal_dialog', 'utility', 'border', 'attached']) {
             for (const focused of [false, true]) {
                 this._saved.push({name, focused, params: this._factory.get_params(name, focused)});

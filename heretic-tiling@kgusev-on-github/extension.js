@@ -18,6 +18,8 @@
  */
 
 import Gio from 'gi://Gio';
+import St from 'gi://St';
+import GObject from 'gi://GObject';
 import {WindowInspector} from './lib/windowInspector.js';
 import {WindowShadows} from './lib/windowShadows.js';
 import {WindowDimming} from './lib/windowDimming.js';
@@ -28,6 +30,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import GLib from 'gi://GLib';
 
 import {LayoutManager} from './lib/layouts/layoutManager.js';
+import {MonitorWorkspaces} from './lib/monitorWorkspaces.js';
 import {RuleEngine} from './lib/rules/ruleEngine.js';
 import {ActionDispatcher} from './lib/actions/dispatcher.js';
 import {StickyManager} from './lib/actions/stickyManager.js';
@@ -88,6 +91,20 @@ export default class HereticTilingExtension extends Extension {
         this._mutterSettings.set_boolean('dynamic-workspaces', false);
         this._wmPrefs.set_int('num-workspaces', numWorkspaces);
 
+        this._monitorWorkspaces = null;
+        this._secondaryIndicators = [];
+        if (this._settings.get_boolean('independent-workspaces')) {
+            this._monitorWorkspaces = new MonitorWorkspaces(this._settings, this._mutterSettings);
+            this._monitorWorkspaces.enable();
+            this._monitorWorkspaces.onChanged = () => {
+                this._layouts?.queueAll();
+                this._wsIndicator?.refresh();
+                for (const indicator of this._secondaryIndicators) indicator.refresh();
+            };
+        } else {
+            MonitorWorkspaces.restoreMutterSetting(this._settings, this._mutterSettings);
+        }
+
         // 2. Workspace keybindings (Super+N / Super+Shift+N)
         this._keybindings = new KeybindingsManager(
             this._wmKeybindings,
@@ -95,6 +112,7 @@ export default class HereticTilingExtension extends Extension {
             this._settings,
             numWorkspaces,
             this._mutterKeybindings,
+            this._monitorWorkspaces,
         );
         this._keybindings.setup();
 
@@ -104,7 +122,15 @@ export default class HereticTilingExtension extends Extension {
         this._ruleEngine.startMonitor();
 
         // 4. Sticky manager + action dispatcher + window tracker
-        this._layouts = new LayoutManager(this._settings, this._mutterSettings, this._ruleEngine);
+        this._layouts = new LayoutManager(
+            this._settings,
+            this._mutterSettings,
+            this._ruleEngine,
+            this._monitorWorkspaces,
+        );
+        if (this._monitorWorkspaces)
+            this._monitorWorkspaces.onBindingChanged = (...args) =>
+                this._layouts.transferWorkspaceLayout(...args);
         this._layouts.enable();
         this._ruleEngine.onReload(() => this._layouts.reload());
         this._stickyManager = new StickyManager();
@@ -113,7 +139,7 @@ export default class HereticTilingExtension extends Extension {
         this._windowTracker.enable();
 
         // Focus behaviour reacts to settings on each focus change.
-        this._focusManager = new FocusManager(this._settings);
+        this._focusManager = new FocusManager(this._settings, this._monitorWorkspaces);
         this._focusManager.enable();
         this._windowDimming = new WindowDimming(this._settings, this._ruleEngine);
 
@@ -138,17 +164,26 @@ export default class HereticTilingExtension extends Extension {
         // 8. Custom workspace indicator in the left panel box (if enabled in prefs)
         if (this._settings.get_boolean('custom-workspace-indicator'))
             this._setupWorkspaceIndicator(numWorkspaces);
+        {
+            this._setupSecondaryIndicators(numWorkspaces);
+            this._signals.connect(Main.layoutManager, 'monitors-changed', () =>
+                this._setupSecondaryIndicators(numWorkspaces),
+            );
+        }
 
         // Watch the scroll-to-switch toggle so it takes effect without reloading
         this._signals.connect(this._settings, 'changed::workspace-scroll-switch', () => {
-            this._wsIndicator?.setScrollSwitch(
-                this._settings.get_boolean('workspace-scroll-switch'),
-            );
+            const enabled = this._settings.get_boolean('workspace-scroll-switch');
+            this._wsIndicator?.setScrollSwitch(enabled);
+            for (const indicator of this._secondaryIndicators) indicator.setScrollSwitch(enabled);
         });
 
         // Watch the middle-click-move toggle so it takes effect without reloading
         this._signals.connect(this._settings, 'changed::middle-click-move', () => {
-            this._wsIndicator?.setMiddleClickMove(this._settings.get_boolean('middle-click-move'));
+            const enabled = this._settings.get_boolean('middle-click-move');
+            this._wsIndicator?.setMiddleClickMove(enabled);
+            for (const indicator of this._secondaryIndicators)
+                indicator.setMiddleClickMove(enabled);
         });
 
         this._log.info('enabled');
@@ -163,6 +198,9 @@ export default class HereticTilingExtension extends Extension {
         this._windowShadows = null;
         this._layouts?.destroy();
         this._layouts = null;
+        this._monitorWorkspaces?.destroy();
+        this._monitorWorkspaces = null;
+        this._teardownSecondaryIndicators();
         // Cancel all pending GLib sources and disconnect all tracked signals
         this._sources?.clearAll();
         this._sources = null;
@@ -298,9 +336,61 @@ export default class HereticTilingExtension extends Extension {
             highlightEmpty,
             middleClickMove,
             this._layouts,
+            this._monitorWorkspaces,
         );
         Main.panel._leftBox.insert_child_at_index(this._wsIndicator.box, 0);
         this._log.debug('custom workspace indicator inserted into left panel box');
+    }
+
+    _setupSecondaryIndicators(numWorkspaces) {
+        this._teardownSecondaryIndicators();
+        if (!this._settings.get_boolean('custom-workspace-indicator')) return;
+        const scroll = this._settings.get_boolean('workspace-scroll-switch');
+        const highlight = this._settings.get_boolean('highlight-empty-workspaces');
+        const middleClick = this._settings.get_boolean('middle-click-move');
+        for (const monitor of Main.layoutManager.monitors) {
+            if (monitor.index === Main.layoutManager.primaryIndex) continue;
+            const indicator = new WorkspaceIndicator(
+                numWorkspaces,
+                this._log,
+                scroll,
+                highlight,
+                middleClick,
+                this._layouts,
+                this._monitorWorkspaces,
+                monitor.index,
+            );
+            const panel = new St.BoxLayout({
+                name: 'panel',
+                reactive: true,
+                width: monitor.width,
+            });
+            panel.set_position(monitor.x, monitor.y);
+            panel.add_child(indicator.box);
+            const heightBinding = Main.panel.bind_property(
+                'height',
+                panel,
+                'height',
+                GObject.BindingFlags.SYNC_CREATE,
+            );
+            indicator.panel = panel;
+            indicator.panelHeightBinding = heightBinding;
+            Main.layoutManager.addChrome(panel, {
+                affectsStruts: true,
+                trackFullscreen: true,
+            });
+            this._secondaryIndicators.push(indicator);
+        }
+    }
+
+    _teardownSecondaryIndicators() {
+        for (const indicator of this._secondaryIndicators ?? []) {
+            indicator.panelHeightBinding.unbind();
+            Main.layoutManager.removeChrome(indicator.panel);
+            indicator.destroy();
+            indicator.panel.destroy();
+        }
+        this._secondaryIndicators = [];
     }
 
     /** Destroy the custom indicator and unhide the default one. */
